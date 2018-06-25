@@ -87,8 +87,29 @@ PUB GetWTIME
 PUB IsPowered | tmp
 ' Gets the PON bit from the ENABLE register, and promotes to TRUE
 
-  tmp := (readReg8(tcs3x7x#REG_ENABLE) & %0) * TRUE
+  tmp := (readReg8(tcs3x7x#REG_ENABLE) & %1) * TRUE
   return tmp
+
+PUB Power(powered) | cmd, ackbit
+
+  case powered
+    FALSE:              'If FALSE/zero is passed, leave it alone
+    OTHER:              ' anything else will be considered TRUE
+      powered := %1
+
+  cmd.byte[0] := SLAVE_ADDR_W
+  cmd.byte[1] := tcs3x7x#CMD | tcs3x7x#TYPE_BYTE | tcs3x7x#REG_ENABLE
+  cmd.byte[2] := powered
+
+  i2c.start
+  ackbit := i2c.pwrite (@cmd, 3)
+  if ackbit == i2c#NAK
+    i2c.stop
+    return $DEADBEEF
+  i2c.stop
+
+  if powered
+    time.USleep (2400)  'Wait 2.4ms per datasheet p.15
 
 PUB readReg8(tcs_reg): data | cmd, ackbit
 'PRI

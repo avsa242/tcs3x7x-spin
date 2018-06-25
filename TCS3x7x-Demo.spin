@@ -19,6 +19,8 @@ CON
 
   DISP_HELP     = 1
   PRINT_REGS    = 2
+  TOGGLE_POWER  = 3
+  WAITING       = 10
 
 OBJ
 
@@ -33,7 +35,7 @@ VAR
 
   long  _keyDaemon_stack[100]
   byte  _keyDaemon_cog, _rgb_cog, _ser_cog
-  byte  _demo_state
+  byte  _demo_state, _prev_state
   byte  _max_cols
 
 
@@ -43,7 +45,9 @@ PUB Main
   repeat
     case _demo_state
       PRINT_REGS:   PrintRegs
-      DISP_HELP:  Help
+      DISP_HELP:    Help
+      TOGGLE_POWER: TogglePower
+      WAITING:      waitkey
       OTHER:
         _demo_state := DISP_HELP
 
@@ -70,14 +74,39 @@ PUB PrintRegs | rec_size, table_offs, icol, regval_tmp
 
     time.MSleep (500)
 
+PUB TogglePower | tmp
+
+  ser.NewLine
+  ser.Str (string("Turning Power "))
+  tmp := rgb.IsPowered
+  if tmp
+    ser.Str (string("off", ser#NL))
+  else
+    ser.Str (string("on", ser#NL))
+
+  rgb.Power (!tmp)
+  waitkey
+
 PUB keyDaemon | key_cmd
 
   repeat
     repeat until key_cmd := ser.CharIn
     case key_cmd
-      "h", "H": _demo_state := DISP_HELP
-      "p", "P": _demo_state := PRINT_REGS
-      OTHER   : _demo_state := DISP_HELP
+      "h", "H":
+        _prev_state := _demo_state
+        _demo_state := DISP_HELP
+      "r", "r":
+        _prev_state := _demo_state
+        _demo_state := PRINT_REGS
+      "p", "P":
+        _prev_state := _demo_state
+        _demo_state := TOGGLE_POWER
+      OTHER   :
+        if _demo_state == WAITING
+          _demo_state := _prev_state
+        else
+          _prev_state := _demo_state
+          _demo_state := DISP_HELP
 
 PUB rule(cols, ind, hash_char) | i
 ''Method to draw a rule on a terminal
@@ -94,15 +123,17 @@ PUB rule(cols, ind, hash_char) | i
 
 PUB waitkey
 
+  _demo_state := WAITING
   ser.Str (string("Press any key", ser#NL))
-  ser.CharIn
+  repeat until _demo_state <> WAITING
 
 PUB Help
 
   ser.Clear
   ser.Str (string("Keys: ", ser#NL, ser#NL))
   ser.Str (string("h, H:  This help screen", ser#NL))
-  ser.Str (string("p, P:  Display register contents", ser#NL))
+  ser.Str (string("p, P:  Toggle sensor power", ser#NL))
+  ser.Str (string("r, R:  Display register contents", ser#NL))
 
   repeat until _demo_state <> DISP_HELP
 
