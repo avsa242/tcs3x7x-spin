@@ -10,43 +10,45 @@
 CON
 
 ' COMMAND REGISTER:
+' MSB
 ' 7     6     5     4     3     2     1     0
+' C.....T.....T.....A.....A.....A.....A.....A
 ' CMD   TYPE        ADDR/SF
 
-' CMD
-  CMD           = %1  << 7
+' CMD - bit 7
+  CMD               = %1  << 7
 
-' TYPE
-  TYPE_BYTE     = %00 << 5
-  TYPE_BLOCK    = %01 << 5
-  TYPE_SPECIAL  = %11 << 5
+' TYPE - bits 6..5
+  TYPE_BYTE         = %00 << 5  'Don't auto-increment address pointer
+  TYPE_BLOCK        = %01 << 5  'Auto-increment address pointer
+  TYPE_SPECIAL      = %11 << 5  'Special Function
 
 
-' ADDR/SF
-  SF_CLR_INT_CLR= %00110
+' ADDR/SF - bits 4..0
+  SF_CLR_INT_CLR    = %00110
 
-  ENABLE        = $00       'ENABLE; AIEN , PON BIT 0
-  ATIME         = $01       '2'S COMP; 2.4MS TO 614MS
-  WTIME         = $03       'WAIT TIME
-  AILTL         = $04       'CLEAR INTERRUPT LOW THRESHOLD
-  AILTH         = $05
-  AIHTL         = $06       'CLEAR INTERRUPT HIGH THRESHOLD 
-  AIHTH         = $07
-  APERS         = $0C       'PERSISTENCE FILTER - BITS 3..0
-  CONFIG        = $0D
-  CONTROL       = $0F       'AGAIN BITS 1..0, 1X, 4X, 16X, 60X GAIN, 2'S COMP
+  REG_ENABLE        = $00       'AIEN bit 4, WEN bit 3, AEN bit 1, PON BIT 0
+  REG_ATIME         = $01       '2'S COMP; 2.4MS TO 614MS
+  REG_WTIME         = $03       'WAIT TIME
+  REG_AILTL         = $04       'CLEAR INTERRUPT LOW THRESHOLD
+  REG_AILTH         = $05
+  REG_AIHTL         = $06       'CLEAR INTERRUPT HIGH THRESHOLD
+  REG_AIHTH         = $07
+  REG_APERS         = $0C       'PERSISTENCE FILTER - BITS 3..0
+  REG_CONFIG        = $0D
+  REG_CONTROL       = $0F       'AGAIN BITS 1..0, 1X, 4X, 16X, 60X GAIN, 2'S COMP
 
-  DEVID         = $12
-  STATUS        = $13
+  REG_DEVID         = $12
+  REG_STATUS        = $13
 
-  CDATAL        = $14       'CLEAR DATA
-  CDATAH        = $15
-  RDATAL        = $16       'RED DATA
-  RDATAH        = $17
-  GDATAL        = $18       'GREEN DATA
-  GDATAH        = $19
-  BDATAL        = $1A       'BLUE DATA
-  BDATAH        = $1B
+  REG_CDATAL        = $14       'CLEAR DATA
+  REG_CDATAH        = $15
+  REG_RDATAL        = $16       'RED DATA
+  REG_RDATAH        = $17
+  REG_GDATAL        = $18       'GREEN DATA
+  REG_GDATAH        = $19
+  REG_BDATAL        = $1A       'BLUE DATA
+  REG_BDATAH        = $1B
 
 PUB null
 ''This is not a top-level object
