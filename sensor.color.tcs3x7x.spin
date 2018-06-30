@@ -129,8 +129,6 @@ PUB IsPowered | tmp
 PUB IsRGBCEnabled | tmp
 ' Gets the AEN bit from the ENABLE register, and promotes to TRUE
 
-'  tmp := (readReg8(tcs3x7x#REG_ENABLE) & %1) * TRUE
-'  tmp := ((GetEnable >> 1) & %1) * TRUE
   tmp := GetAEN * TRUE
   return tmp
 
@@ -195,15 +193,37 @@ PUB readReg16(tcs_reg): data | cmd, ackbit
 
   readX (@data, 2)
 
+PUB readFrame(ptr_frame) | cmd, ackbit, read_tmp[2], b
+'PRI
+  cmd.byte[0] := SLAVE_ADDR_W
+  cmd.byte[1] := tcs3x7x#CMD | tcs3x7x#TYPE_BLOCK | tcs3x7x#REG_CDATAL
+
+  i2c.start
+  ackbit := i2c.pwrite (@cmd, 2)
+  if ackbit == i2c#NAK
+    i2c.stop
+    return $DEADBEEF
+
+  i2c.start
+  i2c.write (SLAVE_ADDR_R)
+  i2c.pread (@read_tmp, 8, TRUE)
+  i2c.stop
+
+  repeat b from 0 to 7
+    byte[ptr_frame][b] := read_tmp.byte[b]
+
 PUB readOne: readbyte
 'PRI
-  readX (@readbyte, 1)
+  i2c.start
+  i2c.write (SLAVE_ADDR_R)
+  readbyte := i2c.read (TRUE)
+  i2c.stop
 
 PUB readX(ptr_buff, num_bytes)
 'PRI
   i2c.start
   i2c.write (SLAVE_ADDR_R)
-  i2c.pread (ptr_buff, num_bytes, TRUE)
+  i2c.pread (@ptr_buff, num_bytes, TRUE)
   i2c.stop
 
 PUB writeOne(data)

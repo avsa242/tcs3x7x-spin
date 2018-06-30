@@ -21,6 +21,7 @@ CON
   PRINT_REGS    = 2
   TOGGLE_POWER  = 3
   TOGGLE_RGBC   = 4
+  PRINT_RGBC    = 5
   WAITING       = 10
 
 OBJ
@@ -49,6 +50,7 @@ PUB Main
       DISP_HELP:    Help
       TOGGLE_POWER: TogglePower
       TOGGLE_RGBC:  ToggleRGBC
+      PRINT_RGBC:   PrintRGBC
       WAITING:      waitkey
       OTHER:
         _demo_state := DISP_HELP
@@ -73,6 +75,40 @@ PUB PrintRegs | rec_size, table_offs, icol, regval_tmp
       if icol == _max_cols
         ser.NewLine
         icol := 0
+
+    time.MSleep (500)
+
+PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata
+
+  ser.Clear
+  repeat until _demo_state <> PRINT_RGBC
+    io.High (LED)
+    rgb.readFrame (@rgbc_data)
+    io.Low (LED)
+    '     0       1       2       3       4       5       6       7
+    'cdatal, cdatah, rdatal, rdatah, gdatal, gdatah, bdatal, bdatah
+    cdata := ((rgbc_data.byte[1] << 8) | rgbc_data.byte[0]) & $FFFF
+    rdata := ((rgbc_data.byte[3] << 8) | rgbc_data.byte[2]) & $FFFF
+    gdata := ((rgbc_data.byte[5] << 8) | rgbc_data.byte[4]) & $FFFF
+    bdata := ((rgbc_data.byte[7] << 8) | rgbc_data.byte[6]) & $FFFF
+    ser.Position (0, 0)
+    ser.Str (string("TCS3x7x RGBC Data:", ser#NL, ser#NL))
+
+    ser.Str (string("Red  : "))
+    ser.Hex (rdata, 4)
+    ser.NewLine
+
+    ser.Str (string("Green: "))
+    ser.Hex (gdata, 4)
+    ser.NewLine
+
+    ser.Str (string("Blue : "))
+    ser.Hex (bdata, 4)
+    ser.NewLine
+
+    ser.Str (string("Clear: "))
+    ser.Hex (cdata, 4)
+    ser.NewLine
 
     time.MSleep (500)
 
@@ -131,6 +167,10 @@ PUB keyDaemon | key_cmd
         _prev_state := _demo_state
         _demo_state := TOGGLE_POWER
 
+      "s", "S":
+        _prev_state := _demo_state
+        _demo_state := PRINT_RGBC
+
       OTHER   :
         if _demo_state == WAITING
           _demo_state := _prev_state
@@ -165,7 +205,7 @@ PUB Help
   ser.Str (string("h, H:  This help screen", ser#NL))
   ser.Str (string("p, P:  Toggle sensor power", ser#NL))
   ser.Str (string("r, R:  Display register contents", ser#NL))
-
+  ser.Str (string("s, S:  Display RGBC sensor data", ser#NL))
   repeat until _demo_state <> DISP_HELP
 
 
