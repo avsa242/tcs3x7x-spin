@@ -64,6 +64,43 @@ PUB Ping: ack
   ack := i2c.write (SLAVE_ADDR)
   i2c.stop
 
+PUB EnableRGBC(enabled) | cmd, ackbit, tmp, aien, wen, pon
+
+  case enabled
+    FALSE:
+    OTHER:              ' Anything non-zero will be considered TRUE
+      enabled := %1
+
+  tmp := GetEnable      'We need to preserve the other bits in the register
+                        'before modifying the state of this bit, so read the reg first
+  aien := tmp >> 4 & %1
+  wen := tmp >> 3 & %1
+  pon := tmp & %1
+
+  tmp := ((aien << 4) | (wen << 3) | (enabled << 1) | pon) & $1F
+  cmd.byte[0] := SLAVE_ADDR_W
+  cmd.byte[1] := tcs3x7x#CMD | tcs3x7x#TYPE_BYTE | tcs3x7x#REG_ENABLE
+  cmd.byte[2] := tmp
+
+  i2c.start
+  ackbit := i2c.pwrite (@cmd, 3)
+  if ackbit == i2c#NAK
+    i2c.stop
+    return $DEADBEEF
+  i2c.stop
+
+PUB GetAEN
+
+  return ((GetEnable >> 1) & %1) * TRUE
+
+PUB GetAIEN
+
+  return ((GetEnable >> 4) & %1) * TRUE
+
+PUB GetWEN
+
+  return ((GetEnable >> 3) & %1) * TRUE
+
 PUB GetEnable
 
   return readReg8(tcs3x7x#REG_ENABLE)
@@ -86,20 +123,35 @@ PUB GetWTIME
 
 PUB IsPowered | tmp
 ' Gets the PON bit from the ENABLE register, and promotes to TRUE
-
-  tmp := (readReg8(tcs3x7x#REG_ENABLE) & %1) * TRUE
+  tmp := (GetEnable & %1) * TRUE
   return tmp
 
-PUB Power(powered) | cmd, ackbit
+PUB IsRGBCEnabled | tmp
+' Gets the AEN bit from the ENABLE register, and promotes to TRUE
+
+'  tmp := (readReg8(tcs3x7x#REG_ENABLE) & %1) * TRUE
+'  tmp := ((GetEnable >> 1) & %1) * TRUE
+  tmp := GetAEN * TRUE
+  return tmp
+
+PUB Power(powered) | cmd, ackbit, tmp, aien, wen, aen
 
   case powered
     FALSE:              'If FALSE/zero is passed, leave it alone
     OTHER:              ' anything else will be considered TRUE
       powered := %1
 
+  tmp := GetEnable      'We need to preserve the other bits in the register
+                        'before modifying the state of this bit, so read the reg first
+  aien := tmp >> 4 & %1
+  wen := tmp >> 3 & %1
+  aen := tmp >> 1 & %1
+
+  tmp := ((aien << 4) | (wen << 3) | (aen << 1) | powered) & $1F
+
   cmd.byte[0] := SLAVE_ADDR_W
   cmd.byte[1] := tcs3x7x#CMD | tcs3x7x#TYPE_BYTE | tcs3x7x#REG_ENABLE
-  cmd.byte[2] := powered
+  cmd.byte[2] := tmp
 
   i2c.start
   ackbit := i2c.pwrite (@cmd, 3)

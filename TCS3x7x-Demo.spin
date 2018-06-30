@@ -20,6 +20,7 @@ CON
   DISP_HELP     = 1
   PRINT_REGS    = 2
   TOGGLE_POWER  = 3
+  TOGGLE_RGBC   = 4
   WAITING       = 10
 
 OBJ
@@ -47,6 +48,7 @@ PUB Main
       PRINT_REGS:   PrintRegs
       DISP_HELP:    Help
       TOGGLE_POWER: TogglePower
+      TOGGLE_RGBC:  ToggleRGBC
       WAITING:      waitkey
       OTHER:
         _demo_state := DISP_HELP
@@ -87,6 +89,27 @@ PUB TogglePower | tmp
   rgb.Power (!tmp)
   waitkey
 
+PUB ToggleRGBC | tmp
+
+  ser.NewLine
+  ser.Str (string("Turning RGBC "))
+  tmp := rgb.IsRGBCEnabled
+  if tmp
+    ser.Str (string("off", ser#NL))
+    rgb.EnableRGBC (FALSE)
+
+  else
+    ser.Str (string("on", ser#NL))
+    rgb.EnableRGBC (TRUE)
+
+
+  waitkey
+
+{  ser.NewLine
+  ser.Str (string("AEN="))
+  ser.Dec (rgb.IsRGBCEnabled)
+  ser.NewLine
+}
 PUB keyDaemon | key_cmd
 
   repeat
@@ -95,12 +118,19 @@ PUB keyDaemon | key_cmd
       "h", "H":
         _prev_state := _demo_state
         _demo_state := DISP_HELP
+
+      "a", "A":
+        _prev_state := _demo_state
+        _demo_state := TOGGLE_RGBC
+
       "r", "r":
         _prev_state := _demo_state
         _demo_state := PRINT_REGS
+
       "p", "P":
         _prev_state := _demo_state
         _demo_state := TOGGLE_POWER
+
       OTHER   :
         if _demo_state == WAITING
           _demo_state := _prev_state
@@ -131,6 +161,7 @@ PUB Help
 
   ser.Clear
   ser.Str (string("Keys: ", ser#NL, ser#NL))
+  ser.Str (string("a, A:  Toggle RGBC (ADC)", ser#NL))
   ser.Str (string("h, H:  This help screen", ser#NL))
   ser.Str (string("p, P:  Toggle sensor power", ser#NL))
   ser.Str (string("r, R:  Display register contents", ser#NL))
@@ -157,7 +188,7 @@ PUB Setup
 
 DAT
 
-  tcs_regmap  byte 20
+  tcs_regmap  byte 22
   byte $00, "ENABLE ", 0
   byte $01, "ATIME  ", 0
   byte $03, "WTIME  ", 0
@@ -178,7 +209,6 @@ DAT
   byte $19, "GDATAH ", 0
   byte $1A, "BDATAL ", 0
   byte $1B, "BDATAH ", 0
-  byte $FE, "       ", 0
 
 DAT
 {
