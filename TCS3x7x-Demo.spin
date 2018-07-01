@@ -23,6 +23,7 @@ CON
   TOGGLE_RGBC   = 4
   PRINT_RGBC    = 5
   TOGGLE_INTS   = 6
+  TOGGLE_WAIT   = 7
   WAITING       = 10
 
 OBJ
@@ -54,6 +55,7 @@ PUB Main
       TOGGLE_RGBC:  ToggleRGBC
       PRINT_RGBC:   PrintRGBC
       TOGGLE_INTS:  ToggleInts
+      TOGGLE_WAIT:  ToggleWait
       WAITING:      waitkey
       OTHER:
         _demo_state := DISP_HELP
@@ -159,6 +161,21 @@ PUB ToggleRGBC | tmp
 
   waitkey
 
+PUB ToggleWait | tmp
+
+  ser.NewLine
+  ser.Str (string("Turning Wait timer "))
+  tmp := rgb.IsWaitEnabled
+  if tmp
+    ser.Str (string("off", ser#NL))
+    rgb.EnableWait (FALSE)
+
+  else
+    ser.Str (string("on", ser#NL))
+    rgb.EnableWait (TRUE)
+
+  waitkey
+
 PUB keyDaemon | key_cmd
 
   repeat
@@ -187,6 +204,10 @@ PUB keyDaemon | key_cmd
       "s", "S":
         _prev_state := _demo_state
         _demo_state := PRINT_RGBC
+
+      "w", "W":
+        _prev_state := _demo_state
+        _demo_state := TOGGLE_WAIT
 
       OTHER   :
         if _demo_state == WAITING
@@ -224,6 +245,8 @@ PUB Help
   ser.Str (string("p, P:  Toggle sensor power", ser#NL))
   ser.Str (string("r, R:  Display register contents", ser#NL))
   ser.Str (string("s, S:  Display RGBC sensor data", ser#NL))
+  ser.Str (string("w, W:  Toggle Wait timer", ser#NL))
+
   repeat until _demo_state <> DISP_HELP
 
 

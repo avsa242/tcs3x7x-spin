@@ -117,6 +117,32 @@ PUB EnableRGBC(enabled) | cmd, tmp, aien, wen, pon
     return $DEADBEEF
   i2c.stop
 
+PUB EnableWait(enabled) | cmd, tmp, aien, aen, pon
+
+  case enabled
+    FALSE:
+    OTHER:              ' Anything non-zero will be considered TRUE
+      enabled := %1
+
+  tmp := GetEnable      'We need to preserve the other bits in the register
+                        'before modifying the state of this bit, so read the reg first
+  aien := tmp >> 4 & %1
+  aen := tmp >> 1 & %1
+  pon := tmp & %1
+
+  tmp := ((aien << 4) | (enabled << 3) | (aen << 1) | pon) & $1F
+  cmd.byte[0] := SLAVE_ADDR_W
+  cmd.byte[1] := tcs3x7x#CMD | tcs3x7x#TYPE_BYTE | tcs3x7x#REG_ENABLE
+  cmd.byte[2] := tmp
+
+  i2c.start
+  _ackbit := i2c.pwrite (@cmd, 3)
+  if _ackbit == i2c#NAK
+    i2c.stop
+    _nak_cnt++
+    return $DEADBEEF
+  i2c.stop
+
 PUB GetAEN
 
   return ((GetEnable >> 1) & %1) * TRUE
@@ -168,6 +194,13 @@ PUB IsRGBCEnabled | tmp
   tmp := GetAEN * TRUE
   return tmp
 
+PUB IsWaitEnabled | tmp
+' Is the sensor's wait timer enabled?
+' Gets the WEN bit from the ENABLE register, and promotes to TRUE
+
+  tmp := GetWEN * TRUE
+  return tmp
+
 PUB Power(powered) | cmd, tmp, aien, wen, aen
 
   case powered
@@ -202,7 +235,7 @@ PUB SetIntegrationTime (cycles) | atime, cmd
 '' ADC Integration time, in cycles
 ''  Each cycle is approx 2.4ms (exception: 256 cycles is 700ms)
 ''  Max resolution (65535 ADC counts) achieved with 64..256
-''  Default or invalid value sets 256
+''  Default or invalid value sets 0 (power on value)
   case cycles
     1..256:
       atime := 256-cycles
