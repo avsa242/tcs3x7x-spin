@@ -65,6 +65,32 @@ PUB Ping: ack
   ack := i2c.write (SLAVE_ADDR)
   i2c.stop
 
+PUB EnableInts(enabled) | cmd, tmp, aen, wen, pon
+
+  case enabled
+    FALSE:
+    OTHER:              ' Anything non-zero will be considered TRUE
+      enabled := %1
+
+  tmp := GetEnable      'We need to preserve the other bits in the register
+                        'before modifying the state of this bit, so read the reg first
+  wen := tmp >> 3 & %1
+  aen := tmp >> 1 & %1
+  pon := tmp & %1
+
+  tmp := ((enabled << 4) | (wen << 3) | (aen << 1) | pon) & $1F
+  cmd.byte[0] := SLAVE_ADDR_W
+  cmd.byte[1] := tcs3x7x#CMD | tcs3x7x#TYPE_BYTE | tcs3x7x#REG_ENABLE
+  cmd.byte[2] := tmp
+
+  i2c.start
+  _ackbit := i2c.pwrite (@cmd, 3)
+  if _ackbit == i2c#NAK
+    i2c.stop
+    _nak_cnt++
+    return $DEADBEEF
+  i2c.stop
+
 PUB EnableRGBC(enabled) | cmd, tmp, aien, wen, pon
 
   case enabled
@@ -123,12 +149,20 @@ PUB GetWTIME
 
   return readReg8(tcs3x7x#REG_WTIME)
 
+PUB IsIntEnabled | tmp
+' Is the RGBC interrupt enabled?
+' Gets the AIEN bit from the ENABLE register, and promotes to TRUE
+  tmp := GetAIEN * TRUE
+  return tmp
+
 PUB IsPowered | tmp
+' Is the sensor powered up?
 ' Gets the PON bit from the ENABLE register, and promotes to TRUE
   tmp := (GetEnable & %1) * TRUE
   return tmp
 
 PUB IsRGBCEnabled | tmp
+' Are the sensor's RGBC ADC's enabled?
 ' Gets the AEN bit from the ENABLE register, and promotes to TRUE
 
   tmp := GetAEN * TRUE

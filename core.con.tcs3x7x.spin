@@ -13,14 +13,15 @@ CON
 ' MSB
 ' 7     6     5     4     3     2     1     0
 ' C.....T.....T.....A.....A.....A.....A.....A
-' CMD   TYPE        ADDR/SF
+' |     |_____|     |_______________________|
+' CMD   TYPE        ADDR (REG)/SF
 
 ' CMD - bit 7
   CMD               = %1  << 7
 
 ' TYPE - bits 6..5
-  TYPE_BYTE         = %00 << 5  'Don't auto-increment address pointer
-  TYPE_BLOCK        = %01 << 5  'Auto-increment address pointer
+  TYPE_BYTE         = %00 << 5  'Don't auto-increment address pointer - use for reading single register
+  TYPE_BLOCK        = %01 << 5  'Auto-increment address pointer - use for reading multiple sequential registers
   TYPE_SPECIAL      = %11 << 5  'Special Function
 
 

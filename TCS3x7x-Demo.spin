@@ -22,6 +22,7 @@ CON
   TOGGLE_POWER  = 3
   TOGGLE_RGBC   = 4
   PRINT_RGBC    = 5
+  TOGGLE_INTS   = 6
   WAITING       = 10
 
 OBJ
@@ -52,6 +53,7 @@ PUB Main
       TOGGLE_POWER: TogglePower
       TOGGLE_RGBC:  ToggleRGBC
       PRINT_RGBC:   PrintRGBC
+      TOGGLE_INTS:  ToggleInts
       WAITING:      waitkey
       OTHER:
         _demo_state := DISP_HELP
@@ -116,6 +118,19 @@ PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata
     ser.NewLine
     time.MSleep (100)
 
+PUB ToggleInts | tmp
+
+  ser.NewLine
+  ser.Str (string("Turning Interrupts "))
+  tmp := rgb.IsIntEnabled
+  if tmp
+    ser.Str (string("off", ser#NL))
+  else
+    ser.Str (string("on", ser#NL))
+
+  rgb.EnableInts (!tmp)
+  waitkey
+
 PUB TogglePower | tmp
 
   ser.NewLine
@@ -156,6 +171,10 @@ PUB keyDaemon | key_cmd
       "a", "A":
         _prev_state := _demo_state
         _demo_state := TOGGLE_RGBC
+
+      "i", "I":
+        _prev_state := _demo_state
+        _demo_state := TOGGLE_INTS
 
       "r", "r":
         _prev_state := _demo_state
@@ -201,6 +220,7 @@ PUB Help
   ser.Str (string("Keys: ", ser#NL, ser#NL))
   ser.Str (string("a, A:  Toggle RGBC (ADC)", ser#NL))
   ser.Str (string("h, H:  This help screen", ser#NL))
+  ser.Str (string("i, I:  Toggle RGBC Interrupts", ser#NL))
   ser.Str (string("p, P:  Toggle sensor power", ser#NL))
   ser.Str (string("r, R:  Display register contents", ser#NL))
   ser.Str (string("s, S:  Display RGBC sensor data", ser#NL))
