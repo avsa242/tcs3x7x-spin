@@ -44,6 +44,7 @@ VAR
 PUB Main
 
   Setup
+
   repeat
     case _demo_state
       PRINT_REGS:   PrintRegs
@@ -76,7 +77,7 @@ PUB PrintRegs | rec_size, table_offs, icol, regval_tmp
         ser.NewLine
         icol := 0
 
-    time.MSleep (500)
+    time.MSleep (100)
 
 PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata
 
@@ -110,7 +111,10 @@ PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata
     ser.Hex (cdata, 4)
     ser.NewLine
 
-    time.MSleep (500)
+    ser.Str (string("NAK cnt: "))
+    ser.Dec (rgb.getnaks)
+    ser.NewLine
+    time.MSleep (100)
 
 PUB TogglePower | tmp
 
@@ -138,14 +142,8 @@ PUB ToggleRGBC | tmp
     ser.Str (string("on", ser#NL))
     rgb.EnableRGBC (TRUE)
 
-
   waitkey
 
-{  ser.NewLine
-  ser.Str (string("AEN="))
-  ser.Dec (rgb.IsRGBCEnabled)
-  ser.NewLine
-}
 PUB keyDaemon | key_cmd
 
   repeat
@@ -228,7 +226,7 @@ PUB Setup
 
 DAT
 
-  tcs_regmap  byte 22
+  tcs_regmap  byte 13
   byte $00, "ENABLE ", 0
   byte $01, "ATIME  ", 0
   byte $03, "WTIME  ", 0
@@ -241,14 +239,6 @@ DAT
   byte $0F, "CONTROL", 0
   byte $12, "ID     ", 0
   byte $13, "STATUS ", 0
-  byte $14, "CDATAL ", 0
-  byte $15, "CDATAH ", 0
-  byte $16, "RDATAL ", 0
-  byte $17, "RDATAH ", 0
-  byte $18, "GDATAL ", 0
-  byte $19, "GDATAH ", 0
-  byte $1A, "BDATAL ", 0
-  byte $1B, "BDATAH ", 0
 
 DAT
 {

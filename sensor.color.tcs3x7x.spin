@@ -20,13 +20,14 @@ CON
 
 VAR
 
+  byte _ackbit
+  long _nak_cnt
 
 OBJ
 
   i2c     : "jm_i2c_fast"
   tcs3x7x : "core.con.tcs3x7x"
   time    : "time"
-'  type    : "system.types"
 
 PUB null
 ''This is not a top-level object
@@ -35,7 +36,7 @@ PUB Start: okay                                         'Default to "standard" P
 
   okay := Startx (DEFAULT_SCL, DEFAULT_SDA, DEFAULT_HZ)
 
-PUB Startx(SCL_PIN, SDA_PIN, I2C_HZ): okay | ack
+PUB Startx(SCL_PIN, SDA_PIN, I2C_HZ): okay
 
   if lookdown(SCL_PIN: 0..31)                           'Validate pins
     if lookdown(SDA_PIN: 0..31)
@@ -64,7 +65,7 @@ PUB Ping: ack
   ack := i2c.write (SLAVE_ADDR)
   i2c.stop
 
-PUB EnableRGBC(enabled) | cmd, ackbit, tmp, aien, wen, pon
+PUB EnableRGBC(enabled) | cmd, tmp, aien, wen, pon
 
   case enabled
     FALSE:
@@ -83,9 +84,10 @@ PUB EnableRGBC(enabled) | cmd, ackbit, tmp, aien, wen, pon
   cmd.byte[2] := tmp
 
   i2c.start
-  ackbit := i2c.pwrite (@cmd, 3)
-  if ackbit == i2c#NAK
+  _ackbit := i2c.pwrite (@cmd, 3)
+  if _ackbit == i2c#NAK
     i2c.stop
+    _nak_cnt++
     return $DEADBEEF
   i2c.stop
 
@@ -132,7 +134,7 @@ PUB IsRGBCEnabled | tmp
   tmp := GetAEN * TRUE
   return tmp
 
-PUB Power(powered) | cmd, ackbit, tmp, aien, wen, aen
+PUB Power(powered) | cmd, tmp, aien, wen, aen
 
   case powered
     FALSE:              'If FALSE/zero is passed, leave it alone
@@ -152,16 +154,45 @@ PUB Power(powered) | cmd, ackbit, tmp, aien, wen, aen
   cmd.byte[2] := tmp
 
   i2c.start
-  ackbit := i2c.pwrite (@cmd, 3)
-  if ackbit == i2c#NAK
+  _ackbit := i2c.pwrite (@cmd, 3)
+  if _ackbit == i2c#NAK
     i2c.stop
+    _nak_cnt++
     return $DEADBEEF
   i2c.stop
 
   if powered
     time.USleep (2400)  'Wait 2.4ms per datasheet p.15
 
-PUB readReg8(tcs_reg): data | cmd, ackbit
+PUB SetIntegrationTime (cycles) | atime, cmd
+'' ADC Integration time, in cycles
+''  Each cycle is approx 2.4ms (exception: 256 cycles is 700ms)
+''  Max resolution (65535 ADC counts) achieved with 64..256
+''  Default or invalid value sets 256
+  case cycles
+    1..256:
+      atime := 256-cycles
+    OTHER:
+      atime := 0
+
+'  return atime '*** DEBUG
+  cmd.byte[0] := SLAVE_ADDR_W
+  cmd.byte[1] := tcs3x7x#CMD | tcs3x7x#TYPE_BYTE | tcs3x7x#REG_ATIME
+  cmd.byte[2] := atime
+
+  i2c.start
+  _ackbit := i2c.pwrite (@cmd, 3)
+  if _ackbit == i2c#NAK
+    i2c.stop
+    _nak_cnt++
+    return $DEADBEEF
+  i2c.stop
+
+PUB getnaks
+
+  return _nak_cnt
+
+PUB readReg8(tcs_reg): data | cmd
 'PRI
   ifnot lookdown(tcs_reg: $00, $01, $03, $0C, $0D, $0F, $12, $13) 'Validate register passed is an 8bit register
     return
@@ -170,14 +201,15 @@ PUB readReg8(tcs_reg): data | cmd, ackbit
   cmd.byte[1] := tcs3x7x#CMD | tcs3x7x#TYPE_BYTE | tcs_reg  'Set up for single address read
 
   i2c.start
-  ackbit := i2c.pwrite (@cmd, 2)
-  if ackbit == i2c#NAK
+  _ackbit := i2c.pwrite (@cmd, 2)
+  if _ackbit == i2c#NAK
     i2c.stop
+    _nak_cnt++
     return $DEADBEEF
 
   data := readOne
 
-PUB readReg16(tcs_reg): data | cmd, ackbit
+PUB readReg16(tcs_reg): data | cmd
 'PRI
   ifnot lookdown(tcs_reg: $04, $06, $14, $16, $18, $1A) 'Validate register passed is a 16bit register
     return
@@ -186,22 +218,24 @@ PUB readReg16(tcs_reg): data | cmd, ackbit
   cmd.byte[1] := tcs3x7x#CMD | tcs3x7x#TYPE_BLOCK | tcs_reg
 
   i2c.start
-  ackbit := i2c.pwrite (@cmd, 2)
-  if ackbit == i2c#NAK
+  _ackbit := i2c.pwrite (@cmd, 2)
+  if _ackbit == i2c#NAK
     i2c.stop
+    _nak_cnt++
     return $DEADBEEF
 
   readX (@data, 2)
 
-PUB readFrame(ptr_frame) | cmd, ackbit, read_tmp[2], b
+PUB readFrame(ptr_frame) | cmd, read_tmp[2], b
 'PRI
   cmd.byte[0] := SLAVE_ADDR_W
   cmd.byte[1] := tcs3x7x#CMD | tcs3x7x#TYPE_BLOCK | tcs3x7x#REG_CDATAL
 
   i2c.start
-  ackbit := i2c.pwrite (@cmd, 2)
-  if ackbit == i2c#NAK
+  _ackbit := i2c.pwrite (@cmd, 2)
+  if _ackbit == i2c#NAK
     i2c.stop
+    _nak_cnt++
     return $DEADBEEF
 
   i2c.start
