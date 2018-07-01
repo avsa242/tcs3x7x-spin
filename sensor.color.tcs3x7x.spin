@@ -149,7 +149,7 @@ PUB GetAEN
 
 PUB GetAIEN
 
-  return ((GetEnable >> 4) & %1) * TRUE
+  return (GetEnable >> 4) & %1
 
 PUB GetWEN
 
@@ -246,6 +246,31 @@ PUB SetIntegrationTime (cycles) | atime, cmd
   cmd.byte[0] := SLAVE_ADDR_W
   cmd.byte[1] := tcs3x7x#CMD | tcs3x7x#TYPE_BYTE | tcs3x7x#REG_ATIME
   cmd.byte[2] := atime
+
+  i2c.start
+  _ackbit := i2c.pwrite (@cmd, 3)
+  if _ackbit == i2c#NAK
+    i2c.stop
+    _nak_cnt++
+    return $DEADBEEF
+  i2c.stop
+
+PUB SetWaitTime (cycles) | cmd, wtime
+'' Wait time, in cycles
+''  Each cycle is approx 2.4ms
+''  unless the WLONG bit in the CONFIG register is set,
+''  then the wait times are 12x longer
+''  Default or invalid value sets 256
+  case cycles
+    1..256:
+      wtime := 256-cycles
+    OTHER:
+      wtime := 255
+
+'  return wtime '*** DEBUG
+  cmd.byte[0] := SLAVE_ADDR_W
+  cmd.byte[1] := tcs3x7x#CMD | tcs3x7x#TYPE_BYTE | tcs3x7x#REG_WTIME
+  cmd.byte[2] := wtime
 
   i2c.start
   _ackbit := i2c.pwrite (@cmd, 3)

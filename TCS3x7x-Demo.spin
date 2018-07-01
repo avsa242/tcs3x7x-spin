@@ -127,8 +127,10 @@ PUB ToggleInts | tmp
   tmp := rgb.IsIntEnabled
   if tmp
     ser.Str (string("off", ser#NL))
+    rgb.EnableInts (FALSE)
   else
     ser.Str (string("on", ser#NL))
+    rgb.EnableInts (TRUE)
 
   rgb.EnableInts (!tmp)
   waitkey
@@ -140,10 +142,11 @@ PUB TogglePower | tmp
   tmp := rgb.IsPowered
   if tmp
     ser.Str (string("off", ser#NL))
+    rgb.Power (FALSE)
   else
     ser.Str (string("on", ser#NL))
+    rgb.Power (TRUE)
 
-  rgb.Power (!tmp)
   waitkey
 
 PUB ToggleRGBC | tmp
@@ -154,7 +157,6 @@ PUB ToggleRGBC | tmp
   if tmp
     ser.Str (string("off", ser#NL))
     rgb.EnableRGBC (FALSE)
-
   else
     ser.Str (string("on", ser#NL))
     rgb.EnableRGBC (TRUE)
