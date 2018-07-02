@@ -255,6 +255,31 @@ PUB SetIntegrationTime (cycles) | atime, cmd
     return $DEADBEEF
   i2c.stop
 
+PUB SetIntThreshold(word__low_thresh, word__high_thresh) | cmd, long_threshold, i
+'' RGBC Interrupt Threshold
+''  Sets low and high thresholds for triggering an interrupt
+''  Out-of-bounds values get clamped to the minimum and maximum allowed values (0..65535)
+''  NOTE: This works only with the CLEAR data channel
+  word__low_thresh := 0 #> word__low_thresh <# $FFFF  ' Clamp values to 0..65535
+  word__high_thresh := 0 #> word__high_thresh <# $FFFF  ' Clamp values to 0..65535
+
+  long_threshold.word[0] := word__low_thresh
+  long_threshold.word[1] := word__high_thresh
+
+'  return long_threshold    '*** DEBUG
+  cmd.byte[0] := SLAVE_ADDR_W
+  cmd.byte[1] := tcs3x7x#CMD | tcs3x7x#TYPE_BLOCK | tcs3x7x#REG_AILTL
+  cmd.word[1] := long_threshold.word[0]
+  cmd.word[2] := long_threshold.word[1]
+
+  i2c.start
+  _ackbit := i2c.pwrite (@cmd, 6)
+    if _ackbit == i2c#NAK
+      i2c.stop
+      _nak_cnt++
+      return $DEADBEEF
+  i2c.stop
+
 PUB SetWaitTime (cycles) | cmd, wtime
 '' Wait time, in cycles
 ''  Each cycle is approx 2.4ms
@@ -286,7 +311,7 @@ PUB getnaks
 
 PUB readReg8(tcs_reg): data | cmd
 'PRI
-  ifnot lookdown(tcs_reg: $00, $01, $03, $0C, $0D, $0F, $12, $13) 'Validate register passed is an 8bit register
+  ifnot lookdown(tcs_reg: $00, $01, $03..$07, $0C, $0D, $0F, $12..$1B) 'Validate register passed is an 8bit register
     return
 
   cmd.byte[0] := SLAVE_ADDR_W

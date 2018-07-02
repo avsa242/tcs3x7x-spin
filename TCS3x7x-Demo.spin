@@ -81,6 +81,10 @@ PUB PrintRegs | rec_size, table_offs, icol, regval_tmp
         ser.NewLine
         icol := 0
 
+    ser.Str (string(ser#NL, "NAK cnt: "))
+    ser.Dec (rgb.getnaks)
+    ser.NewLine
+
     time.MSleep (100)
 
 PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata
@@ -131,8 +135,7 @@ PUB ToggleInts | tmp
   else
     ser.Str (string("on", ser#NL))
     rgb.EnableInts (TRUE)
-
-  rgb.EnableInts (!tmp)
+    rgb.SetIntThreshold ($1234, $5678)
   waitkey
 
 PUB TogglePower | tmp
