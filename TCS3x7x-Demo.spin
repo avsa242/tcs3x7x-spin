@@ -24,6 +24,7 @@ CON
   PRINT_RGBC    = 5
   TOGGLE_INTS   = 6
   TOGGLE_WAIT   = 7
+  TOGGLE_LED    = 8
   WAITING       = 10
 
 OBJ
@@ -41,12 +42,13 @@ VAR
   byte  _keyDaemon_cog, _rgb_cog, _ser_cog
   byte  _demo_state, _prev_state
   byte  _max_cols
-
+  byte  _led_enabled
 
 PUB Main
 
   Setup
 
+  rgb.SetPersistence (5)
   repeat
     case _demo_state
       PRINT_REGS:   PrintRegs
@@ -56,6 +58,7 @@ PUB Main
       PRINT_RGBC:   PrintRGBC
       TOGGLE_INTS:  ToggleInts
       TOGGLE_WAIT:  ToggleWait
+      TOGGLE_LED:   ToggleLED
       WAITING:      waitkey
       OTHER:
         _demo_state := DISP_HELP
@@ -64,6 +67,9 @@ PUB PrintRegs | rec_size, table_offs, icol, regval_tmp
 
   ser.Clear
   repeat until _demo_state <> PRINT_REGS
+    if _led_enabled
+      io.High (LED)
+
     ser.Position (0, 0)
     rule (80, 10, ".")
     rec_size := 9
@@ -84,16 +90,18 @@ PUB PrintRegs | rec_size, table_offs, icol, regval_tmp
     ser.Str (string(ser#NL, "NAK cnt: "))
     ser.Dec (rgb.getnaks)
     ser.NewLine
-
+    if _led_enabled
+      io.Low (LED)
     time.MSleep (100)
 
 PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata
 
   ser.Clear
   repeat until _demo_state <> PRINT_RGBC
-    io.High (LED)
-    rgb.readFrame (@rgbc_data)
-    io.Low (LED)
+    if _led_enabled
+      io.High (LED)
+      rgb.readFrame (@rgbc_data)
+      io.Low (LED)
     '     0       1       2       3       4       5       6       7
     'cdatal, cdatah, rdatal, rdatah, gdatal, gdatah, bdatal, bdatah
     cdata := ((rgbc_data.byte[1] << 8) | rgbc_data.byte[0]) & $FFFF
@@ -124,6 +132,20 @@ PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata
     ser.NewLine
     time.MSleep (100)
 
+PUB ToggleLED
+
+  ser.NewLine
+  ser.Str (string("Turning LED "))
+
+  if _led_enabled
+    _led_enabled := FALSE
+    ser.Str (string("off", ser#NL))
+    io.Low (LED)  'Turn off explicitly, just to be sure
+  else
+    ser.Str (string("on", ser#NL))
+    _led_enabled := TRUE
+  waitkey
+
 PUB ToggleInts | tmp
 
   ser.NewLine
@@ -135,7 +157,7 @@ PUB ToggleInts | tmp
   else
     ser.Str (string("on", ser#NL))
     rgb.EnableInts (TRUE)
-    rgb.SetIntThreshold ($1234, $5678)
+    rgb.SetIntThreshold ($0001, $00A0)
   waitkey
 
 PUB TogglePower | tmp
@@ -198,6 +220,10 @@ PUB keyDaemon | key_cmd
         _prev_state := _demo_state
         _demo_state := TOGGLE_INTS
 
+      "l", "L":
+        _prev_state := _demo_state
+        _demo_state := TOGGLE_LED
+
       "r", "r":
         _prev_state := _demo_state
         _demo_state := PRINT_REGS
@@ -247,6 +273,7 @@ PUB Help
   ser.Str (string("a, A:  Toggle RGBC (ADC)", ser#NL))
   ser.Str (string("h, H:  This help screen", ser#NL))
   ser.Str (string("i, I:  Toggle RGBC Interrupts", ser#NL))
+  ser.Str (string("l, L:  Toggle LED Strobe", ser#NL))
   ser.Str (string("p, P:  Toggle sensor power", ser#NL))
   ser.Str (string("r, R:  Display register contents", ser#NL))
   ser.Str (string("s, S:  Display RGBC sensor data", ser#NL))

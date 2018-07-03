@@ -280,12 +280,40 @@ PUB SetIntThreshold(word__low_thresh, word__high_thresh) | cmd, long_threshold, 
       return $DEADBEEF
   i2c.stop
 
+PUB SetPersistence (cycles) | cmd, apers
+'' Interrupt persistence, in cycles
+''  How many consecutive measurements that have to be outside the set threshold
+''  before an interrupt is actually triggered
+''  Valid values:
+''    0 - Every measurement triggers an interrupt, regardless
+''    1 - Every measurement outside the set threshold triggers an interrupt
+''    2 - Must be 2 consecutive measurements outside the set threshold to trigger an interrupt
+''    3 - ditto
+''    5..60 (multiples of 5)
+''    Invalid values will set 0 (power-on value)
+  case cycles
+    0..3:   apers := cycles
+    5..60:  apers := cycles / 5 + 3
+    OTHER:  apers := %0000
+
+  cmd.byte[0] := SLAVE_ADDR_W
+  cmd.byte[1] := tcs3x7x#CMD | tcs3x7x#TYPE_BLOCK | tcs3x7x#REG_APERS
+  cmd.byte[2] := apers
+
+  i2c.start
+  _ackbit := i2c.pwrite (@cmd, 3)
+  if _ackbit == i2c#NAK
+    i2c.stop
+    _nak_cnt++
+    return $DEADBEEF
+  i2c.stop
+
 PUB SetWaitTime (cycles) | cmd, wtime
 '' Wait time, in cycles
 ''  Each cycle is approx 2.4ms
 ''  unless the WLONG bit in the CONFIG register is set,
 ''  then the wait times are 12x longer
-''  Default or invalid value sets 256
+''  Default or invalid value sets 256 (byte $00; 614ms or 7.4s)
   case cycles
     1..256:
       wtime := 256-cycles
