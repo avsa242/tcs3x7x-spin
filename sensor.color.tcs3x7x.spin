@@ -143,6 +143,27 @@ PUB EnableWait(enabled) | cmd, tmp, aien, aen, pon
     return $DEADBEEF
   i2c.stop
 
+PUB EnableWaitLong(enabled) | cmd, tmp, aien, aen, pon
+'' Wait (long) time
+''  If enabled, wait cycles set using the SetWaitTime method are increased 12x
+'' XXX Investigate merging this functionality with SetWaitTime to simplify use
+  case enabled
+    FALSE:
+    OTHER:              ' Anything non-zero will be considered TRUE
+      enabled := %1
+
+  cmd.byte[0] := SLAVE_ADDR_W
+  cmd.byte[1] := tcs3x7x#CMD | tcs3x7x#TYPE_BYTE | tcs3x7x#REG_CONFIG
+  cmd.byte[2] := enabled << 1
+
+  i2c.start
+  _ackbit := i2c.pwrite (@cmd, 3)
+  if _ackbit == i2c#NAK
+    i2c.stop
+    _nak_cnt++
+    return $DEADBEEF
+  i2c.stop
+
 PUB GetAEN
 
   return ((GetEnable >> 1) & %1) * TRUE
@@ -150,6 +171,10 @@ PUB GetAEN
 PUB GetAIEN
 
   return (GetEnable >> 4) & %1
+
+PUB GetConfig
+
+  return (readReg8(tcs3x7x#REG_CONFIG) >> 1) & %1
 
 PUB GetWEN
 
@@ -199,6 +224,13 @@ PUB IsWaitEnabled | tmp
 ' Gets the WEN bit from the ENABLE register, and promotes to TRUE
 
   tmp := GetWEN * TRUE
+  return tmp
+
+PUB IsWaitLongEnabled | tmp
+' Are long wait times enabled?
+' Gets the WLONG bit from the CONFIG register, and promotes to TRUE
+
+  tmp := GetConfig * TRUE
   return tmp
 
 PUB Power(powered) | cmd, tmp, aien, wen, aen

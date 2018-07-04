@@ -17,15 +17,16 @@ CON
   I2C_HZ    = 100_000
   LED       = 25
 
-  DISP_HELP     = 1
-  PRINT_REGS    = 2
-  TOGGLE_POWER  = 3
-  TOGGLE_RGBC   = 4
-  PRINT_RGBC    = 5
-  TOGGLE_INTS   = 6
-  TOGGLE_WAIT   = 7
-  TOGGLE_LED    = 8
-  WAITING       = 10
+  DISP_HELP       = 1
+  PRINT_REGS      = 2
+  TOGGLE_POWER    = 3
+  TOGGLE_RGBC     = 4
+  PRINT_RGBC      = 5
+  TOGGLE_INTS     = 6
+  TOGGLE_WAIT     = 7
+  TOGGLE_LED      = 8
+  TOGGLE_WAITLONG = 9
+  WAITING         = 10
 
 OBJ
 
@@ -49,17 +50,20 @@ PUB Main
   Setup
 
   rgb.SetPersistence (5)
+  rgb.SetWaitTime (85)
+
   repeat
     case _demo_state
-      PRINT_REGS:   PrintRegs
-      DISP_HELP:    Help
-      TOGGLE_POWER: TogglePower
-      TOGGLE_RGBC:  ToggleRGBC
-      PRINT_RGBC:   PrintRGBC
-      TOGGLE_INTS:  ToggleInts
-      TOGGLE_WAIT:  ToggleWait
-      TOGGLE_LED:   ToggleLED
-      WAITING:      waitkey
+      PRINT_REGS:       PrintRegs
+      DISP_HELP:        Help
+      TOGGLE_POWER:     TogglePower
+      TOGGLE_RGBC:      ToggleRGBC
+      PRINT_RGBC:       PrintRGBC
+      TOGGLE_INTS:      ToggleInts
+      TOGGLE_WAIT:      ToggleWait
+      TOGGLE_LED:       ToggleLED
+      TOGGLE_WAITLONG:  ToggleWaitLong
+      WAITING:          waitkey
       OTHER:
         _demo_state := DISP_HELP
 
@@ -100,8 +104,9 @@ PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata
   repeat until _demo_state <> PRINT_RGBC
     if _led_enabled
       io.High (LED)
-      rgb.readFrame (@rgbc_data)
-      io.Low (LED)
+    rgb.readFrame (@rgbc_data)
+    io.Low (LED)
+
     '     0       1       2       3       4       5       6       7
     'cdatal, cdatah, rdatal, rdatah, gdatal, gdatah, bdatal, bdatah
     cdata := ((rgbc_data.byte[1] << 8) | rgbc_data.byte[0]) & $FFFF
@@ -130,6 +135,7 @@ PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata
     ser.Str (string("NAK cnt: "))
     ser.Dec (rgb.getnaks)
     ser.NewLine
+
     time.MSleep (100)
 
 PUB ToggleLED
@@ -203,6 +209,21 @@ PUB ToggleWait | tmp
 
   waitkey
 
+PUB ToggleWaitLong | tmp
+
+  ser.NewLine
+  ser.Str (string("Turning Long Waits "))
+  tmp := rgb.IsWaitLongEnabled
+  if tmp
+    ser.Str (string("off", ser#NL))
+    rgb.EnableWaitLong (FALSE)
+
+  else
+    ser.Str (string("on", ser#NL))
+    rgb.EnableWaitLong (TRUE)
+
+  waitkey
+
 PUB keyDaemon | key_cmd
 
   repeat
@@ -231,6 +252,10 @@ PUB keyDaemon | key_cmd
       "p", "P":
         _prev_state := _demo_state
         _demo_state := TOGGLE_POWER
+
+      "q", "Q":
+        _prev_state := _demo_state
+        _demo_state := TOGGLE_WAITLONG
 
       "s", "S":
         _prev_state := _demo_state
@@ -275,6 +300,7 @@ PUB Help
   ser.Str (string("i, I:  Toggle RGBC Interrupts", ser#NL))
   ser.Str (string("l, L:  Toggle LED Strobe", ser#NL))
   ser.Str (string("p, P:  Toggle sensor power", ser#NL))
+  ser.Str (string("q, Q:  Toggle Long Waits", ser#NL))
   ser.Str (string("r, R:  Display register contents", ser#NL))
   ser.Str (string("s, S:  Display RGBC sensor data", ser#NL))
   ser.Str (string("w, W:  Toggle Wait timer", ser#NL))
