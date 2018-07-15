@@ -164,9 +164,10 @@ PUB EnableWaitLong(enabled) | cmd, tmp, aien, aen, pon
     return $DEADBEEF
   i2c.stop
 
+' XXX Should any of the Get* methods that return other than boolean values return parsed values?
 PUB GetAEN
 
-  return ((GetEnable >> 1) & %1) * TRUE
+  return (GetEnable >> 1) & %1
 
 PUB GetAIEN
 
@@ -176,9 +177,13 @@ PUB GetConfig
 
   return (readReg8(tcs3x7x#REG_CONFIG) >> 1) & %1
 
+PUB GetGain
+
+  return readReg8(tcs3x7x#REG_CONTROL) & %11
+
 PUB GetWEN
 
-  return ((GetEnable >> 3) & %1) * TRUE
+  return (GetEnable >> 3) & %1
 
 PUB GetEnable
 
@@ -262,6 +267,29 @@ PUB Power(powered) | cmd, tmp, aien, wen, aen
 
   if powered
     time.USleep (2400)  'Wait 2.4ms per datasheet p.15
+
+PUB SetGain (factor) | again, cmd
+'' RGBC Gain Control
+''  Set amplifier gain to 1x (power-on default), 4x, 16x or 60x
+  case factor
+    1:  again := %00
+    4:  again := %01
+    16: again := %10
+    60: again := %11
+    OTHER:
+        again := %00  'Invalid values set to 1x gain
+
+  cmd.byte[0] := SLAVE_ADDR_W
+  cmd.byte[1] := tcs3x7x#CMD | tcs3x7x#TYPE_BYTE | tcs3x7x#REG_CONTROL
+  cmd.byte[2] := again & %11
+
+  i2c.start
+  _ackbit := i2c.pwrite (@cmd, 3)
+  if _ackbit == i2c#NAK
+    i2c.stop
+    _nak_cnt++
+    return $DEADBEEF
+  i2c.stop
 
 PUB SetIntegrationTime (cycles) | atime, cmd
 '' ADC Integration time, in cycles
@@ -389,7 +417,7 @@ PUB readReg8(tcs_reg): data | cmd
 PUB readReg16(tcs_reg): data | cmd
 'PRI
   ifnot lookdown(tcs_reg: $04, $06, $14, $16, $18, $1A) 'Validate register passed is a 16bit register
-    return
+    return $DEADC0DE  'XXX For testing only; remove for production
 
   cmd.byte[0] := SLAVE_ADDR_W
   cmd.byte[1] := tcs3x7x#CMD | tcs3x7x#TYPE_BLOCK | tcs_reg
@@ -422,6 +450,23 @@ PUB readFrame(ptr_frame) | cmd, read_tmp[2], b
 
   repeat b from 0 to 7
     byte[ptr_frame][b] := read_tmp.byte[b]
+
+PUB readThresh: thresh | cmd, read_tmp
+
+  cmd.byte[0] := SLAVE_ADDR_W
+  cmd.byte[1] := tcs3x7x#CMD | tcs3x7x#TYPE_BLOCK | tcs3x7x#REG_AILTL
+
+  i2c.start
+  _ackbit := i2c.pwrite (@cmd, 2)
+  if _ackbit == i2c#NAK
+    i2c.stop
+    _nak_cnt++
+    return $DEADBEEF
+
+  i2c.start
+  i2c.write (SLAVE_ADDR_R)
+  i2c.pread (@thresh, 4, TRUE)
+  i2c.stop
 
 PUB readOne: readbyte
 'PRI

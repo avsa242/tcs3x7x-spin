@@ -51,6 +51,7 @@ PUB Main
 
   rgb.SetPersistence (5)
   rgb.SetWaitTime (85)
+  rgb.SetGain (1)
 
   repeat
     case _demo_state
