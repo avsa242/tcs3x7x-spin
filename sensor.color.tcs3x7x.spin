@@ -3,166 +3,147 @@
     Filename: sensor.color.tcs3x7x.spin
     Author: Jesse Burt
     Copyright (c) 2018
+    Started: Jun 24, 2018
+    Updated: Oct 14, 2018
     See end of file for terms of use.
     --------------------------------------------
 }
 
 CON
 
-  SLAVE_ADDR        = $29 << 1
-  SLAVE_ADDR_W      = SLAVE_ADDR
-  SLAVE_ADDR_R      = SLAVE_ADDR|1
-  
-  DEFAULT_SCL       = 28
-  DEFAULT_SDA       = 29
-  DEFAULT_HZ        = 400_000
-  I2C_MAX_BUS_FREQ  = 400_000
+    SLAVE_WR          = core#SLAVE_ADDR
+    SLAVE_RD          = SLAVE_WR|1
+
+    DEF_SCL           = 28
+    DEF_SDA           = 29
+    DEF_HZ            = 400_000
+    I2C_MAX_FREQ      = core#I2C_MAX_FREQ
 
 VAR
 
-  byte _ackbit
-  long _nak_cnt
+    byte _ackbit
 
 OBJ
 
-  i2c     : "jm_i2c_fast"
-  tcs3x7x : "core.con.tcs3x7x"
-  time    : "time"
+    core  : "core.con.tcs3x7x"
+    i2c   : "jm_i2c_fast"
+    time  : "time"
 
 PUB null
 ''This is not a top-level object
 
-PUB Start: okay                                         'Default to "standard" Propeller I2C pins and 400kHz
+PUB Start: okay                                                 'Default to "standard" Propeller I2C pins and 400kHz
 
-  okay := Startx (DEFAULT_SCL, DEFAULT_SDA, DEFAULT_HZ)
+    okay := Startx (DEF_SCL, DEF_SDA, DEF_HZ)
 
 PUB Startx(SCL_PIN, SDA_PIN, I2C_HZ): okay
 
-  if lookdown(SCL_PIN: 0..31)                           'Validate pins
-    if lookdown(SDA_PIN: 0..31)
-      if SCL_PIN <> SDA_PIN
-        if I2C_HZ =< I2C_MAX_BUS_FREQ
-          if okay := i2c.setupx (SCL_PIN, SDA_PIN, I2C_HZ)      'I2C Object Started?
-            time.MSleep (1)
-            ifnot Ping
-              return okay
-            else
-              return FALSE
-          else
-            return FALSE
-        else
-          return FALSE
-      else
-        return FALSE
-    else
-      return FALSE
-  else
-    return FALSE
+    if lookdown(SCL_PIN: 0..31) and lookdown(SDA_PIN: 0..31)
+        if I2C_HZ =< core#I2C_MAX_FREQ
+            if okay := i2c.setupx (SCL_PIN, SDA_PIN, I2C_HZ)    'I2C Object Started?
+                time.MSleep (1)
+                ifnot Ping
+                    return okay
+
+    return FALSE                                                'If we got here, something went wrong
 
 PUB Ping: ack
 
-  i2c.start
-  ack := i2c.write (SLAVE_ADDR)
-  i2c.stop
+    i2c.start
+    ack := i2c.write (SLAVE_WR)
+    i2c.stop
 
 PUB EnableInts(enabled) | cmd, tmp, aen, wen, pon
 
-  case enabled
-    FALSE:
-    OTHER:              ' Anything non-zero will be considered TRUE
-      enabled := %1
+    case ||enabled
+        0, 1: enabled := ||enabled
+        OTHER:
+            return
 
-  tmp := GetEnable      'We need to preserve the other bits in the register
+    tmp := GetEnable    'We need to preserve the other bits in the register
                         'before modifying the state of this bit, so read the reg first
-  wen := tmp >> 3 & %1
-  aen := tmp >> 1 & %1
-  pon := tmp & %1
+    wen := tmp >> 3 & %1
+    aen := tmp >> 1 & %1
+    pon := tmp & %1
 
-  tmp := ((enabled << 4) | (wen << 3) | (aen << 1) | pon) & $1F
-  cmd.byte[0] := SLAVE_ADDR_W
-  cmd.byte[1] := tcs3x7x#CMD | tcs3x7x#TYPE_BYTE | tcs3x7x#REG_ENABLE
-  cmd.byte[2] := tmp
+    tmp := ((enabled << 4) | (wen << 3) | (aen << 1) | pon) & $1F
+    cmd.byte[0] := SLAVE_WR
+    cmd.byte[1] := core#CMD | core#TYPE_BYTE | core#REG_ENABLE
+    cmd.byte[2] := tmp
 
-  i2c.start
-  _ackbit := i2c.pwrite (@cmd, 3)
-  if _ackbit == i2c#NAK
+    i2c.start
+    _ackbit := i2c.pwrite (@cmd, 3)
+    if _ackbit == i2c#NAK
+        i2c.stop
+        return FALSE
     i2c.stop
-    _nak_cnt++
-    return $DEADBEEF
-  i2c.stop
 
 PUB EnableRGBC(enabled) | cmd, tmp, aien, wen, pon
 
-  case enabled
-    FALSE:
-    OTHER:              ' Anything non-zero will be considered TRUE
-      enabled := %1
+    case ||enabled
+        0, 1: enabled := ||enabled
+        OTHER: return FALSE
 
-  tmp := GetEnable      'We need to preserve the other bits in the register
-                        'before modifying the state of this bit, so read the reg first
-  aien := tmp >> 4 & %1
-  wen := tmp >> 3 & %1
-  pon := tmp & %1
+    tmp := GetEnable        'We need to preserve the other bits in the register
+                            'before modifying the state of this bit, so read the reg first
+    aien := tmp >> 4 & %1
+    wen := tmp >> 3 & %1
+    pon := tmp & %1
 
-  tmp := ((aien << 4) | (wen << 3) | (enabled << 1) | pon) & $1F
-  cmd.byte[0] := SLAVE_ADDR_W
-  cmd.byte[1] := tcs3x7x#CMD | tcs3x7x#TYPE_BYTE | tcs3x7x#REG_ENABLE
-  cmd.byte[2] := tmp
+    tmp := ((aien << 4) | (wen << 3) | (enabled << 1) | pon) & $1F
+    cmd.byte[0] := SLAVE_WR
+    cmd.byte[1] := core#CMD | core#TYPE_BYTE | core#REG_ENABLE
+    cmd.byte[2] := tmp
 
-  i2c.start
-  _ackbit := i2c.pwrite (@cmd, 3)
-  if _ackbit == i2c#NAK
-    i2c.stop
-    _nak_cnt++
-    return $DEADBEEF
+    i2c.start
+    _ackbit := i2c.pwrite (@cmd, 3)
+    if _ackbit == i2c#NAK
+        i2c.stop
+        return FALSE
   i2c.stop
 
 PUB EnableWait(enabled) | cmd, tmp, aien, aen, pon
 
-  case enabled
-    FALSE:
-    OTHER:              ' Anything non-zero will be considered TRUE
-      enabled := %1
+    case ||enabled
+        0, 1: enabled := || enabled
+        OTHER:  return FALSE
 
-  tmp := GetEnable      'We need to preserve the other bits in the register
+    tmp := GetEnable    'We need to preserve the other bits in the register
                         'before modifying the state of this bit, so read the reg first
-  aien := tmp >> 4 & %1
-  aen := tmp >> 1 & %1
-  pon := tmp & %1
+    aien := tmp >> 4 & %1
+    aen := tmp >> 1 & %1
+    pon := tmp & %1
 
-  tmp := ((aien << 4) | (enabled << 3) | (aen << 1) | pon) & $1F
-  cmd.byte[0] := SLAVE_ADDR_W
-  cmd.byte[1] := tcs3x7x#CMD | tcs3x7x#TYPE_BYTE | tcs3x7x#REG_ENABLE
-  cmd.byte[2] := tmp
+    tmp := ((aien << 4) | (enabled << 3) | (aen << 1) | pon) & $1F
+    cmd.byte[0] := SLAVE_WR
+    cmd.byte[1] := core#CMD | core#TYPE_BYTE | core#REG_ENABLE
+    cmd.byte[2] := tmp
 
-  i2c.start
-  _ackbit := i2c.pwrite (@cmd, 3)
-  if _ackbit == i2c#NAK
+    i2c.start
+    _ackbit := i2c.pwrite (@cmd, 3)
+    if _ackbit == i2c#NAK
+        i2c.stop
+        return FALSE
     i2c.stop
-    _nak_cnt++
-    return $DEADBEEF
-  i2c.stop
 
 PUB EnableWaitLong(enabled) | cmd, tmp, aien, aen, pon
 '' Wait (long) time
 ''  If enabled, wait cycles set using the SetWaitTime method are increased 12x
 '' XXX Investigate merging this functionality with SetWaitTime to simplify use
-  case enabled
-    FALSE:
-    OTHER:              ' Anything non-zero will be considered TRUE
-      enabled := %1
+    case ||enabled
+        0, 1: enabled := ||enabled
+        OTHER: return FALSE
 
-  cmd.byte[0] := SLAVE_ADDR_W
-  cmd.byte[1] := tcs3x7x#CMD | tcs3x7x#TYPE_BYTE | tcs3x7x#REG_CONFIG
-  cmd.byte[2] := enabled << 1
+    cmd.byte[0] := SLAVE_WR
+    cmd.byte[1] := core#CMD | core#TYPE_BYTE | core#REG_CONFIG
+    cmd.byte[2] := enabled << 1
 
-  i2c.start
-  _ackbit := i2c.pwrite (@cmd, 3)
-  if _ackbit == i2c#NAK
+    i2c.start
+    _ackbit := i2c.pwrite (@cmd, 3)
+    if _ackbit == i2c#NAK
+        i2c.stop
+        return FALSE
     i2c.stop
-    _nak_cnt++
-    return $DEADBEEF
-  i2c.stop
 
 ' XXX Should any of the Get* methods that return other than boolean values return parsed values?
 PUB GetAEN
@@ -175,11 +156,11 @@ PUB GetAIEN
 
 PUB GetConfig
 
-  return (readReg8(tcs3x7x#REG_CONFIG) >> 1) & %1
+  return (readReg8(core#REG_CONFIG) >> 1) & %1
 
 PUB GetGain
 
-  return readReg8(tcs3x7x#REG_CONTROL) & %11
+  return readReg8(core#REG_CONTROL) & %11
 
 PUB GetWEN
 
@@ -187,23 +168,23 @@ PUB GetWEN
 
 PUB GetEnable
 
-  return readReg8(tcs3x7x#REG_ENABLE)
+  return readReg8(core#REG_ENABLE)
 
 PUB GetPartID
 
-  return readReg8(tcs3x7x#REG_DEVID)
+  return readReg8(core#REG_DEVID)
 
 PUB GetATIME
 
-  return readReg8(tcs3x7x#REG_ATIME)
+  return readReg8(core#REG_ATIME)
 
 PUB GetStatus
 
-  return readReg8(tcs3x7x#REG_STATUS)
+  return readReg8(core#REG_STATUS)
 
 PUB GetWTIME
 
-  return readReg8(tcs3x7x#REG_WTIME)
+  return readReg8(core#REG_WTIME)
 
 PUB IsIntEnabled | tmp
 ' Is the RGBC interrupt enabled?
@@ -240,30 +221,28 @@ PUB IsWaitLongEnabled | tmp
 
 PUB Power(powered) | cmd, tmp, aien, wen, aen
 
-  case powered
-    FALSE:              'If FALSE/zero is passed, leave it alone
-    OTHER:              ' anything else will be considered TRUE
-      powered := %1
+    case ||powered
+        0, 1: powered := ||powered
+        OTHER: return FALSE
 
-  tmp := GetEnable      'We need to preserve the other bits in the register
+    tmp := GetEnable    'We need to preserve the other bits in the register
                         'before modifying the state of this bit, so read the reg first
-  aien := tmp >> 4 & %1
-  wen := tmp >> 3 & %1
-  aen := tmp >> 1 & %1
+    aien := tmp >> 4 & %1
+    wen := tmp >> 3 & %1
+    aen := tmp >> 1 & %1
 
-  tmp := ((aien << 4) | (wen << 3) | (aen << 1) | powered) & $1F
+    tmp := ((aien << 4) | (wen << 3) | (aen << 1) | powered) & $1F
 
-  cmd.byte[0] := SLAVE_ADDR_W
-  cmd.byte[1] := tcs3x7x#CMD | tcs3x7x#TYPE_BYTE | tcs3x7x#REG_ENABLE
-  cmd.byte[2] := tmp
+    cmd.byte[0] := SLAVE_WR
+    cmd.byte[1] := core#CMD | core#TYPE_BYTE | core#REG_ENABLE
+    cmd.byte[2] := tmp
 
-  i2c.start
-  _ackbit := i2c.pwrite (@cmd, 3)
-  if _ackbit == i2c#NAK
+    i2c.start
+    _ackbit := i2c.pwrite (@cmd, 3)
+    if _ackbit == i2c#NAK
+        i2c.stop
+        return FALSE
     i2c.stop
-    _nak_cnt++
-    return $DEADBEEF
-  i2c.stop
 
   if powered
     time.USleep (2400)  'Wait 2.4ms per datasheet p.15
@@ -271,74 +250,70 @@ PUB Power(powered) | cmd, tmp, aien, wen, aen
 PUB SetGain (factor) | again, cmd
 '' RGBC Gain Control
 ''  Set amplifier gain to 1x (power-on default), 4x, 16x or 60x
-  case factor
-    1:  again := %00
-    4:  again := %01
-    16: again := %10
-    60: again := %11
-    OTHER:
-        again := %00  'Invalid values set to 1x gain
+    case factor
+        1:  again := %00
+        4:  again := %01
+        16: again := %10
+        60: again := %11
+        OTHER:
+            return FALSE
 
-  cmd.byte[0] := SLAVE_ADDR_W
-  cmd.byte[1] := tcs3x7x#CMD | tcs3x7x#TYPE_BYTE | tcs3x7x#REG_CONTROL
-  cmd.byte[2] := again & %11
+    cmd.byte[0] := SLAVE_WR
+    cmd.byte[1] := core#CMD | core#TYPE_BYTE | core#REG_CONTROL
+    cmd.byte[2] := again & %11
 
-  i2c.start
-  _ackbit := i2c.pwrite (@cmd, 3)
-  if _ackbit == i2c#NAK
+    i2c.start
+    _ackbit := i2c.pwrite (@cmd, 3)
+    if _ackbit == i2c#NAK
+        i2c.stop
+        return FALSE
     i2c.stop
-    _nak_cnt++
-    return $DEADBEEF
-  i2c.stop
 
 PUB SetIntegrationTime (cycles) | atime, cmd
 '' ADC Integration time, in cycles
 ''  Each cycle is approx 2.4ms (exception: 256 cycles is 700ms)
 ''  Max resolution (65535 ADC counts) achieved with 64..256
 ''  Default or invalid value sets 0 (power on value)
-  case cycles
-    1..256:
-      atime := 256-cycles
-    OTHER:
-      atime := 0
-
+    case cycles
+        1..256:
+            atime := 256-cycles
+        OTHER:
+            return FALSE
 '  return atime '*** DEBUG
-  cmd.byte[0] := SLAVE_ADDR_W
-  cmd.byte[1] := tcs3x7x#CMD | tcs3x7x#TYPE_BYTE | tcs3x7x#REG_ATIME
-  cmd.byte[2] := atime
+    cmd.byte[0] := SLAVE_WR
+    cmd.byte[1] := core#CMD | core#TYPE_BYTE | core#REG_ATIME
+    cmd.byte[2] := atime
 
-  i2c.start
-  _ackbit := i2c.pwrite (@cmd, 3)
-  if _ackbit == i2c#NAK
+    i2c.start
+    _ackbit := i2c.pwrite (@cmd, 3)
+    if _ackbit == i2c#NAK
+        i2c.stop
+        return FALSE
     i2c.stop
-    _nak_cnt++
-    return $DEADBEEF
-  i2c.stop
 
-PUB SetIntThreshold(word__low_thresh, word__high_thresh) | cmd, long_threshold, i
+PUB SetIntThreshold(word__low_thresh, word__high_thresh) | cmd{should this be 2? review}, long_threshold, i
 '' RGBC Interrupt Threshold
 ''  Sets low and high thresholds for triggering an interrupt
 ''  Out-of-bounds values get clamped to the minimum and maximum allowed values (0..65535)
 ''  NOTE: This works only with the CLEAR data channel
-  word__low_thresh := 0 #> word__low_thresh <# $FFFF  ' Clamp values to 0..65535
-  word__high_thresh := 0 #> word__high_thresh <# $FFFF  ' Clamp values to 0..65535
+    word__low_thresh := 0 #> word__low_thresh <# $FFFF  ' Clamp values to 0..65535
+    word__high_thresh := 0 #> word__high_thresh <# $FFFF  ' Clamp values to 0..65535
 
-  long_threshold.word[0] := word__low_thresh
-  long_threshold.word[1] := word__high_thresh
+    long_threshold.word[0] := word__low_thresh
+    long_threshold.word[1] := word__high_thresh
 
-'  return long_threshold    '*** DEBUG
-  cmd.byte[0] := SLAVE_ADDR_W
-  cmd.byte[1] := tcs3x7x#CMD | tcs3x7x#TYPE_BLOCK | tcs3x7x#REG_AILTL
-  cmd.word[1] := long_threshold.word[0]
-  cmd.word[2] := long_threshold.word[1]
+    '  return long_threshold    '*** DEBUG
+    cmd.byte[0] := SLAVE_WR
+    cmd.byte[1] := core#CMD | core#TYPE_BLOCK | core#REG_AILTL
+    cmd.word[1] := long_threshold.word[0]
+    cmd.word[2] := long_threshold.word[1]
 
-  i2c.start
-  _ackbit := i2c.pwrite (@cmd, 6)
+    i2c.start
+    _ackbit := i2c.pwrite (@cmd, 6)
     if _ackbit == i2c#NAK
-      i2c.stop
-      _nak_cnt++
-      return $DEADBEEF
-  i2c.stop
+        i2c.stop
+        return FALSE
+    i2c.stop
 
 PUB SetPersistence (cycles) | cmd, apers
 '' Interrupt persistence, in cycles
@@ -350,148 +325,136 @@ PUB SetPersistence (cycles) | cmd, apers
 ''    2 - Must be 2 consecutive measurements outside the set threshold to trigger an interrupt
 ''    3 - ditto
 ''    5..60 (multiples of 5)
-''    Invalid values will set 0 (power-on value)
-  case cycles
-    0..3:   apers := cycles
-    5..60:  apers := cycles / 5 + 3
-    OTHER:  apers := %0000
+''    Invalid values will be ignored
+    case cycles
+        0..3:   apers := cycles
+        5..60:  apers := cycles / 5 + 3
+        OTHER:  return FALSE
 
-  cmd.byte[0] := SLAVE_ADDR_W
-  cmd.byte[1] := tcs3x7x#CMD | tcs3x7x#TYPE_BLOCK | tcs3x7x#REG_APERS
-  cmd.byte[2] := apers
+    cmd.byte[0] := SLAVE_WR
+    cmd.byte[1] := core#CMD | core#TYPE_BLOCK | core#REG_APERS
+    cmd.byte[2] := apers
 
-  i2c.start
-  _ackbit := i2c.pwrite (@cmd, 3)
-  if _ackbit == i2c#NAK
+    i2c.start
+    _ackbit := i2c.pwrite (@cmd, 3)
+    if _ackbit == i2c#NAK
+        i2c.stop
+        return FALSE
     i2c.stop
-    _nak_cnt++
-    return $DEADBEEF
-  i2c.stop
 
 PUB SetWaitTime (cycles) | cmd, wtime
 '' Wait time, in cycles
 ''  Each cycle is approx 2.4ms
 ''  unless the WLONG bit in the CONFIG register is set,
 ''  then the wait times are 12x longer
-''  Default or invalid value sets 256 (byte $00; 614ms or 7.4s)
-  case cycles
-    1..256:
-      wtime := 256-cycles
-    OTHER:
-      wtime := 255
+''  Default or invalid value ignored
+    case cycles
+        1..256:
+            wtime := 256-cycles
+        OTHER:
+            return FALSE
 
 '  return wtime '*** DEBUG
-  cmd.byte[0] := SLAVE_ADDR_W
-  cmd.byte[1] := tcs3x7x#CMD | tcs3x7x#TYPE_BYTE | tcs3x7x#REG_WTIME
-  cmd.byte[2] := wtime
+    cmd.byte[0] := SLAVE_WR
+    cmd.byte[1] := core#CMD | core#TYPE_BYTE | core#REG_WTIME
+    cmd.byte[2] := wtime
 
-  i2c.start
-  _ackbit := i2c.pwrite (@cmd, 3)
-  if _ackbit == i2c#NAK
+    i2c.start
+    _ackbit := i2c.pwrite (@cmd, 3)
+    if _ackbit == i2c#NAK
+        i2c.stop
+        return FALSE
     i2c.stop
-    _nak_cnt++
-    return $DEADBEEF
-  i2c.stop
-
-PUB getnaks
-
-  return _nak_cnt
 
 PUB readReg8(tcs_reg): data | cmd
 'PRI
-  ifnot lookdown(tcs_reg: $00, $01, $03..$07, $0C, $0D, $0F, $12..$1B) 'Validate register passed is an 8bit register
-    return
+    ifnot lookdown(tcs_reg: $00, $01, $03..$07, $0C, $0D, $0F, $12..$1B) 'Validate register passed is an 8bit register
+        return
 
-  cmd.byte[0] := SLAVE_ADDR_W
-  cmd.byte[1] := tcs3x7x#CMD | tcs3x7x#TYPE_BYTE | tcs_reg  'Set up for single address read
+    cmd.byte[0] := SLAVE_WR
+    cmd.byte[1] := core#CMD | core#TYPE_BYTE | tcs_reg  'Set up for single address read
 
-  i2c.start
-  _ackbit := i2c.pwrite (@cmd, 2)
-  if _ackbit == i2c#NAK
-    i2c.stop
-    _nak_cnt++
-    return $DEADBEEF
-
-  data := readOne
+    i2c.start
+    _ackbit := i2c.pwrite (@cmd, 2)
+    if _ackbit == i2c#NAK
+        i2c.stop
+        return FALSE
+    data := readOne
 
 PUB readReg16(tcs_reg): data | cmd
 'PRI
-  ifnot lookdown(tcs_reg: $04, $06, $14, $16, $18, $1A) 'Validate register passed is a 16bit register
-    return $DEADC0DE  'XXX For testing only; remove for production
+    ifnot lookdown(tcs_reg: $04, $06, $14, $16, $18, $1A) 'Validate register passed is a 16bit register
+        return $DEADC0DE  'XXX For testing only; remove for production
 
-  cmd.byte[0] := SLAVE_ADDR_W
-  cmd.byte[1] := tcs3x7x#CMD | tcs3x7x#TYPE_BLOCK | tcs_reg
+    cmd.byte[0] := SLAVE_WR
+    cmd.byte[1] := core#CMD | core#TYPE_BLOCK | tcs_reg
 
-  i2c.start
-  _ackbit := i2c.pwrite (@cmd, 2)
-  if _ackbit == i2c#NAK
-    i2c.stop
-    _nak_cnt++
-    return $DEADBEEF
-
-  readX (@data, 2)
+    i2c.start
+    _ackbit := i2c.pwrite (@cmd, 2)
+    if _ackbit == i2c#NAK
+        i2c.stop
+        return FALSE
+    readX (@data, 2)
 
 PUB readFrame(ptr_frame) | cmd, read_tmp[2], b
 'PRI
-  cmd.byte[0] := SLAVE_ADDR_W
-  cmd.byte[1] := tcs3x7x#CMD | tcs3x7x#TYPE_BLOCK | tcs3x7x#REG_CDATAL
+    cmd.byte[0] := SLAVE_WR
+    cmd.byte[1] := core#CMD | core#TYPE_BLOCK | core#REG_CDATAL
 
-  i2c.start
-  _ackbit := i2c.pwrite (@cmd, 2)
-  if _ackbit == i2c#NAK
+    i2c.start
+    _ackbit := i2c.pwrite (@cmd, 2)
+    if _ackbit == i2c#NAK
+        i2c.stop
+        return FALSE
+
+    i2c.start
+    i2c.write (SLAVE_RD)
+    i2c.pread (@read_tmp, 8, TRUE)
     i2c.stop
-    _nak_cnt++
-    return $DEADBEEF
 
-  i2c.start
-  i2c.write (SLAVE_ADDR_R)
-  i2c.pread (@read_tmp, 8, TRUE)
-  i2c.stop
-
-  repeat b from 0 to 7
-    byte[ptr_frame][b] := read_tmp.byte[b]
+    repeat b from 0 to 7
+        byte[ptr_frame][b] := read_tmp.byte[b]
 
 PUB readThresh: thresh | cmd, read_tmp
 
-  cmd.byte[0] := SLAVE_ADDR_W
-  cmd.byte[1] := tcs3x7x#CMD | tcs3x7x#TYPE_BLOCK | tcs3x7x#REG_AILTL
+    cmd.byte[0] := SLAVE_WR
+    cmd.byte[1] := core#CMD | core#TYPE_BLOCK | core#REG_AILTL
 
-  i2c.start
-  _ackbit := i2c.pwrite (@cmd, 2)
-  if _ackbit == i2c#NAK
+    i2c.start
+    _ackbit := i2c.pwrite (@cmd, 2)
+    if _ackbit == i2c#NAK
+        i2c.stop
+        return FALSE
+
+    i2c.start
+    i2c.write (SLAVE_RD)
+    i2c.pread (@thresh, 4, TRUE)
     i2c.stop
-    _nak_cnt++
-    return $DEADBEEF
-
-  i2c.start
-  i2c.write (SLAVE_ADDR_R)
-  i2c.pread (@thresh, 4, TRUE)
-  i2c.stop
 
 PUB readOne: readbyte
 'PRI
-  i2c.start
-  i2c.write (SLAVE_ADDR_R)
-  readbyte := i2c.read (TRUE)
-  i2c.stop
+    i2c.start
+    i2c.write (SLAVE_RD)
+    readbyte := i2c.read (TRUE)
+    i2c.stop
 
 PUB readX(ptr_buff, num_bytes)
 'PRI
-  i2c.start
-  i2c.write (SLAVE_ADDR_R)
-  i2c.pread (@ptr_buff, num_bytes, TRUE)
-  i2c.stop
+    i2c.start
+    i2c.write (SLAVE_RD)
+    i2c.pread (@ptr_buff, num_bytes, TRUE)
+    i2c.stop
 
 PUB writeOne(data)
 'PRI
-  WriteX (data, 1)
+    WriteX (data, 1)
 
 PUB WriteX(ptr_buff, num_bytes)
 'PRI
-  i2c.start
-  i2c.write (SLAVE_ADDR_W)
-  i2c.pwrite (ptr_buff, num_bytes)
-  i2c.stop
+    i2c.start
+    i2c.write (SLAVE_WR)
+    i2c.pwrite (ptr_buff, num_bytes)
+    i2c.stop
 
 DAT
 {

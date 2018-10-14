@@ -3,30 +3,29 @@
     Filename: TCS3x7x-Demo.spin
     Author: Jesse Burt
     Copyright (c) 2018
+    Started: Jun 24, 2018
+    Updated: Oct 14, 2018
     See end of file for terms of use.
     --------------------------------------------
 }
 
 CON
 
-  _clkmode  = cfg#_clkmode
-  _xinfreq  = cfg#_xinfreq
+  _clkmode          = cfg#_clkmode
+  _xinfreq          = cfg#_xinfreq
 
-  SCL       = 28
-  SDA       = 29
-  I2C_HZ    = 100_000
-  LED       = 25
+  LED               = 25
 
-  DISP_HELP       = 1
-  PRINT_REGS      = 2
-  TOGGLE_POWER    = 3
-  TOGGLE_RGBC     = 4
-  PRINT_RGBC      = 5
-  TOGGLE_INTS     = 6
-  TOGGLE_WAIT     = 7
-  TOGGLE_LED      = 8
-  TOGGLE_WAITLONG = 9
-  WAITING         = 10
+  DISP_HELP         = 1
+  PRINT_REGS        = 2
+  TOGGLE_POWER      = 3
+  TOGGLE_RGBC       = 4
+  PRINT_RGBC        = 5
+  TOGGLE_INTS       = 6
+  TOGGLE_WAIT       = 7
+  TOGGLE_LED        = 8
+  TOGGLE_WAITLONG   = 9
+  WAITING           = 10
 
 OBJ
 
@@ -50,7 +49,7 @@ PUB Main
   Setup
 
   rgb.SetPersistence (5)
-  rgb.SetWaitTime (85)
+  rgb.SetWaitTime (1)
   rgb.SetGain (1)
 
   repeat
@@ -68,40 +67,62 @@ PUB Main
       OTHER:
         _demo_state := DISP_HELP
 
-PUB PrintRegs | rec_size, table_offs, icol, regval_tmp
+PUB PrintRegs | rec_size, table_offs, maj_col, regval_tmp, col_sz, start_row, row
 
   ser.Clear
+  rec_size := 9
+  col_sz := (rec_size - 2) + 6  'Major columns accomodate register name, equals, register value, and space padding
+  maj_col := 0
+  start_row := 2
+  _max_cols := 4
+
+  ser.Position (0, 0)
+  ser.Str (string("TCS3x7x Register Map:"))
+  row := start_row
+
+  repeat table_offs from 1 to (tcs_regmap*8) step rec_size
+    ser.Position (col_sz * maj_col, row)
+    ser.Str (@tcs_regmap[table_offs+1])
+    ser.Str (string("= "))
+    maj_col++
+    if maj_col == _max_cols
+      row++
+      maj_col := 0
+
+  row := start_row
+  maj_col := 0
   repeat until _demo_state <> PRINT_REGS
     if _led_enabled
       io.High (LED)
-
-    ser.Position (0, 0)
-    rule (80, 10, ".")
-    rec_size := 9
-    icol := 0
-
-    ser.Str (string("TCS3x7x Register Map:", ser#NL))
     repeat table_offs from 1 to (tcs_regmap*8) step rec_size
-      ser.Str (@tcs_regmap[table_offs+1])
-      ser.Str (string("= "))
       regval_tmp := rgb.readReg8 (tcs_regmap[table_offs])
+      ser.Position ((col_sz * maj_col) + (col_sz-4), row)
       ser.Hex (regval_tmp, 2)
-      ser.Str (string(" | "))
-      icol++
-      if icol == _max_cols
-        ser.NewLine
-        icol := 0
+      maj_col++
+      if maj_col == _max_cols
+        row++
+        maj_col := 0
+    row := start_row
 
-    ser.Str (string(ser#NL, "NAK cnt: "))
-    ser.Dec (rgb.getnaks)
-    ser.NewLine
     if _led_enabled
       io.Low (LED)
     time.MSleep (100)
 
-PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata
+PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata, cmax, i
 
   ser.Clear
+  ser.Position (0, 0)
+  ser.Str (string("TCS3x7x RGBC Data (dominant color channel surrounded by [ ]):"))
+
+  ser.Position (1, 2)
+  ser.Str (string(" Red"))
+  ser.Position (1, 3)
+  ser.Str (string(" Green"))
+  ser.Position (1, 4)
+  ser.Str (string(" Blue"))
+  ser.Position (1, 5)
+  ser.Str (string(" Clear"))
+
   repeat until _demo_state <> PRINT_RGBC
     if _led_enabled
       io.High (LED)
@@ -114,28 +135,42 @@ PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata
     rdata := ((rgbc_data.byte[3] << 8) | rgbc_data.byte[2]) & $FFFF
     gdata := ((rgbc_data.byte[5] << 8) | rgbc_data.byte[4]) & $FFFF
     bdata := ((rgbc_data.byte[7] << 8) | rgbc_data.byte[6]) & $FFFF
-    ser.Position (0, 0)
-    ser.Str (string("TCS3x7x RGBC Data:", ser#NL, ser#NL))
 
-    ser.Str (string("Red  : "))
+    cmax := %00
+    if rdata > gdata and rdata > bdata
+      cmax := %01
+    if gdata > rdata and gdata > bdata
+      cmax := %10
+    if bdata > rdata and bdata > gdata
+      cmax := %11
+
+    ser.Position (10, 2)
     ser.Hex (rdata, 4)
-    ser.NewLine
 
-    ser.Str (string("Green: "))
+    ser.Position (10, 3)
     ser.Hex (gdata, 4)
-    ser.NewLine
 
-    ser.Str (string("Blue : "))
+    ser.Position (10, 4)
     ser.Hex (bdata, 4)
-    ser.NewLine
 
-    ser.Str (string("Clear: "))
+    ser.Position (10, 5)
     ser.Hex (cdata, 4)
-    ser.NewLine
 
-    ser.Str (string("NAK cnt: "))
-    ser.Dec (rgb.getnaks)
-    ser.NewLine
+    repeat i from %01 to %11
+      if cmax == i
+        ser.Position (0, i + 1)
+        ser.Char ("[")
+        ser.Position (8, i + 1)
+        ser.Str (string("] "))
+      else
+        ser.Position (0, i + 1)
+        ser.Char (" ")
+        ser.Position (8, i + 1)
+        ser.Str (string("  "))
+
+'    ser.Position (0, 7)
+'    ser.Str (string("NAK cnt: "))
+'    ser.Dec (rgb.getnaks)
 
     time.MSleep (100)
 
@@ -322,9 +357,10 @@ PUB Setup
     ser.Str (string("tcs3x7x object started", ser#NL))
   else
     ser.Str (string("tcs3x7x object failed to start", ser#NL))
+    time.MSleep (500)
     ser.Stop
-    debug.LEDSlow (26)
-  _max_cols := 4
+    debug.LEDSlow (cfg#LED1)
+  _max_cols := 1
 
 DAT
 

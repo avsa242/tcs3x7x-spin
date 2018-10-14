@@ -3,11 +3,16 @@
     Filename: core.con.tcs3x7x.spin
     Author: Jesse Burt
     Copyright (c) 2018
+    Started: Jun 24, 2018
+    Updated: Oct 14, 2018
     See end of file for terms of use.
     --------------------------------------------
 }
 
 CON
+
+  I2C_MAX_FREQ      = 400_000
+  SLAVE_ADDR        = $29 << 1
 
 ' COMMAND REGISTER:
 ' MSB
