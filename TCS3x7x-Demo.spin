@@ -92,8 +92,6 @@ PUB PrintRegs | rec_size, table_offs, maj_col, regval_tmp, col_sz, start_row, ro
   row := start_row
   maj_col := 0
   repeat until _demo_state <> PRINT_REGS
-    if _led_enabled
-      io.High (LED)
     repeat table_offs from 1 to (tcs_regmap*8) step rec_size
       regval_tmp := rgb.readReg8 (tcs_regmap[table_offs])
       ser.Position ((col_sz * maj_col) + (col_sz-4), row)
@@ -103,9 +101,6 @@ PUB PrintRegs | rec_size, table_offs, maj_col, regval_tmp, col_sz, start_row, ro
         row++
         maj_col := 0
     row := start_row
-
-    if _led_enabled
-      io.Low (LED)
     time.MSleep (100)
 
 PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata, cmax, i
