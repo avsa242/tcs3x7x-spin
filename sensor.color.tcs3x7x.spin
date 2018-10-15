@@ -4,7 +4,7 @@
     Author: Jesse Burt
     Copyright (c) 2018
     Started: Jun 24, 2018
-    Updated: Oct 14, 2018
+    Updated: Oct 15, 2018
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -67,16 +67,7 @@ PUB EnableInts(enabled) | cmd, tmp, aen, wen, pon
     pon := tmp & %1
 
     tmp := ((enabled << 4) | (wen << 3) | (aen << 1) | pon) & $1F
-    cmd.byte[0] := SLAVE_WR
-    cmd.byte[1] := core#CMD | core#TYPE_BYTE | core#REG_ENABLE
-    cmd.byte[2] := tmp
-
-    i2c.start
-    _ackbit := i2c.pwrite (@cmd, 3)
-    if _ackbit == i2c#NAK
-        i2c.stop
-        return FALSE
-    i2c.stop
+    writeReg8 (core#REG_ENABLE, tmp)
 
 PUB EnableRGBC(enabled) | cmd, tmp, aien, wen, pon
 
@@ -91,16 +82,7 @@ PUB EnableRGBC(enabled) | cmd, tmp, aien, wen, pon
     pon := tmp & %1
 
     tmp := ((aien << 4) | (wen << 3) | (enabled << 1) | pon) & $1F
-    cmd.byte[0] := SLAVE_WR
-    cmd.byte[1] := core#CMD | core#TYPE_BYTE | core#REG_ENABLE
-    cmd.byte[2] := tmp
-
-    i2c.start
-    _ackbit := i2c.pwrite (@cmd, 3)
-    if _ackbit == i2c#NAK
-        i2c.stop
-        return FALSE
-  i2c.stop
+    writeReg8 (core#REG_ENABLE, tmp)
 
 PUB EnableWait(enabled) | cmd, tmp, aien, aen, pon
 
@@ -115,16 +97,7 @@ PUB EnableWait(enabled) | cmd, tmp, aien, aen, pon
     pon := tmp & %1
 
     tmp := ((aien << 4) | (enabled << 3) | (aen << 1) | pon) & $1F
-    cmd.byte[0] := SLAVE_WR
-    cmd.byte[1] := core#CMD | core#TYPE_BYTE | core#REG_ENABLE
-    cmd.byte[2] := tmp
-
-    i2c.start
-    _ackbit := i2c.pwrite (@cmd, 3)
-    if _ackbit == i2c#NAK
-        i2c.stop
-        return FALSE
-    i2c.stop
+    writeReg8 (core#REG_ENABLE, tmp)
 
 PUB EnableWaitLong(enabled) | cmd, tmp, aien, aen, pon
 '' Wait (long) time
@@ -134,16 +107,7 @@ PUB EnableWaitLong(enabled) | cmd, tmp, aien, aen, pon
         0, 1: enabled := ||enabled
         OTHER: return FALSE
 
-    cmd.byte[0] := SLAVE_WR
-    cmd.byte[1] := core#CMD | core#TYPE_BYTE | core#REG_CONFIG
-    cmd.byte[2] := enabled << 1
-
-    i2c.start
-    _ackbit := i2c.pwrite (@cmd, 3)
-    if _ackbit == i2c#NAK
-        i2c.stop
-        return FALSE
-    i2c.stop
+    writeReg8 (core#REG_CONFIG, enabled << 1)
 
 ' XXX Should any of the Get* methods that return other than boolean values return parsed values?
 PUB GetAEN
@@ -233,19 +197,10 @@ PUB Power(powered) | cmd, tmp, aien, wen, aen
 
     tmp := ((aien << 4) | (wen << 3) | (aen << 1) | powered) & $1F
 
-    cmd.byte[0] := SLAVE_WR
-    cmd.byte[1] := core#CMD | core#TYPE_BYTE | core#REG_ENABLE
-    cmd.byte[2] := tmp
+    writeReg8 (core#REG_ENABLE, tmp)
 
-    i2c.start
-    _ackbit := i2c.pwrite (@cmd, 3)
-    if _ackbit == i2c#NAK
-        i2c.stop
-        return FALSE
-    i2c.stop
-
-  if powered
-    time.USleep (2400)  'Wait 2.4ms per datasheet p.15
+    if powered
+        time.USleep (2400)  'Wait 2.4ms per datasheet p.15
 
 PUB SetGain (factor) | again, cmd
 '' RGBC Gain Control
@@ -258,16 +213,7 @@ PUB SetGain (factor) | again, cmd
         OTHER:
             return FALSE
 
-    cmd.byte[0] := SLAVE_WR
-    cmd.byte[1] := core#CMD | core#TYPE_BYTE | core#REG_CONTROL
-    cmd.byte[2] := again & %11
-
-    i2c.start
-    _ackbit := i2c.pwrite (@cmd, 3)
-    if _ackbit == i2c#NAK
-        i2c.stop
-        return FALSE
-    i2c.stop
+    writeReg8 (core#REG_CONTROL, again & %11)
 
 PUB SetIntegrationTime (cycles) | atime, cmd
 '' ADC Integration time, in cycles
@@ -279,41 +225,18 @@ PUB SetIntegrationTime (cycles) | atime, cmd
             atime := 256-cycles
         OTHER:
             return FALSE
-'  return atime '*** DEBUG
-    cmd.byte[0] := SLAVE_WR
-    cmd.byte[1] := core#CMD | core#TYPE_BYTE | core#REG_ATIME
-    cmd.byte[2] := atime
 
-    i2c.start
-    _ackbit := i2c.pwrite (@cmd, 3)
-    if _ackbit == i2c#NAK
-        i2c.stop
-        return FALSE
-    i2c.stop
+    writeReg8 (core#REG_ATIME, atime)
 
-PUB SetIntThreshold(word__low_thresh, word__high_thresh) | cmd{should this be 2? review}, long_threshold, i
+PUB SetIntThreshold(low_thresh, high_thresh)
 '' RGBC Interrupt Threshold
 ''  Sets low and high thresholds for triggering an interrupt
 ''  Out-of-bounds values get clamped to the minimum and maximum allowed values (0..65535)
 ''  NOTE: This works only with the CLEAR data channel
-    word__low_thresh := 0 #> word__low_thresh <# $FFFF  ' Clamp values to 0..65535
-    word__high_thresh := 0 #> word__high_thresh <# $FFFF  ' Clamp values to 0..65535
+    low_thresh := 0 #> low_thresh <# $FFFF  ' Clamp values to 0..65535
+    high_thresh := 0 #> high_thresh <# $FFFF  ' Clamp values to 0..65535
 
-    long_threshold.word[0] := word__low_thresh
-    long_threshold.word[1] := word__high_thresh
-
-    '  return long_threshold    '*** DEBUG
-    cmd.byte[0] := SLAVE_WR
-    cmd.byte[1] := core#CMD | core#TYPE_BLOCK | core#REG_AILTL
-    cmd.word[1] := long_threshold.word[0]
-    cmd.word[2] := long_threshold.word[1]
-
-    i2c.start
-    _ackbit := i2c.pwrite (@cmd, 6)
-    if _ackbit == i2c#NAK
-        i2c.stop
-        return FALSE
-    i2c.stop
+    writeReg16 (core#REG_AILTL, low_thresh, high_thresh)
 
 PUB SetPersistence (cycles) | cmd, apers
 '' Interrupt persistence, in cycles
@@ -331,16 +254,7 @@ PUB SetPersistence (cycles) | cmd, apers
         5..60:  apers := cycles / 5 + 3
         OTHER:  return FALSE
 
-    cmd.byte[0] := SLAVE_WR
-    cmd.byte[1] := core#CMD | core#TYPE_BLOCK | core#REG_APERS
-    cmd.byte[2] := apers
-
-    i2c.start
-    _ackbit := i2c.pwrite (@cmd, 3)
-    if _ackbit == i2c#NAK
-        i2c.stop
-        return FALSE
-    i2c.stop
+    writeReg8 (core#REG_APERS, apers)
 
 PUB SetWaitTime (cycles) | cmd, wtime
 '' Wait time, in cycles
@@ -354,16 +268,29 @@ PUB SetWaitTime (cycles) | cmd, wtime
         OTHER:
             return FALSE
 
-'  return wtime '*** DEBUG
+    writeReg8 (core#REG_WTIME, wtime)
+
+PUB writeReg8(reg, data) | cmd
+'PRI
     cmd.byte[0] := SLAVE_WR
-    cmd.byte[1] := core#CMD | core#TYPE_BYTE | core#REG_WTIME
-    cmd.byte[2] := wtime
+    cmd.byte[1] := core#CMD | core#TYPE_BYTE | reg
+'    cmd.word[0] := CMD_BYTE | (reg << 8) ' up-and-coming change
+    cmd.byte[2] := data
 
     i2c.start
-    _ackbit := i2c.pwrite (@cmd, 3)
-    if _ackbit == i2c#NAK
-        i2c.stop
-        return FALSE
+    _ackbit := i2c.pwrite(@cmd, 3)
+    i2c.stop
+
+PUB writeReg16(reg, data_h, data_l) | cmd[2]
+'PRI
+    cmd.byte[0] := SLAVE_WR
+    cmd.byte[1] := core#CMD | core#TYPE_BLOCK | reg
+'    cmd.word[0] := CMD_BLOCK | (reg << 8) ' up-and-coming change
+    cmd.word[1] := data_h
+    cmd.word[2] := data_l
+
+    i2c.start
+    _ackbit := i2c.pwrite(@cmd, 6)
     i2c.stop
 
 PUB readReg8(tcs_reg): data | cmd
