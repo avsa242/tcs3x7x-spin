@@ -60,8 +60,8 @@ PUB EnableInts(enabled) | cmd, tmp, aen, wen, pon
         OTHER:
             return
 
-    tmp := GetEnable    'We need to preserve the other bits in the register
-                        'before modifying the state of this bit, so read the reg first
+    tmp := GetEnable        'We need to preserve the other bits in the register
+                            'before modifying the state of this bit, so read the reg first
     wen := tmp >> 3 & %1
     aen := tmp >> 1 & %1
     pon := tmp & %1
@@ -90,8 +90,8 @@ PUB EnableWait(enabled) | cmd, tmp, aien, aen, pon
         0, 1: enabled := || enabled
         OTHER:  return FALSE
 
-    tmp := GetEnable    'We need to preserve the other bits in the register
-                        'before modifying the state of this bit, so read the reg first
+    tmp := GetEnable        'We need to preserve the other bits in the register
+                            'before modifying the state of this bit, so read the reg first
     aien := tmp >> 4 & %1
     aen := tmp >> 1 & %1
     pon := tmp & %1
@@ -118,37 +118,43 @@ PUB GetAIEN
 
   return (GetEnable >> 4) & %1
 
-PUB GetConfig
+PUB GetConfig: reg_config
 
-  return (readReg8(core#REG_CONFIG) >> 1) & %1
+  readRegX(core#REG_CONFIG, 1, @reg_config)
+  reg_config := (reg_config >> 1) & %1
 
-PUB GetGain
+PUB GetGain: gain
 
-  return readReg8(core#REG_CONTROL) & %11
+  readRegX(core#REG_CONTROL, 1, @gain)
+  gain &= %11
 
 PUB GetWEN
 
-  return (GetEnable >> 3) & %1
+    return (GetEnable >> 3) & %1
 
-PUB GetEnable
+PUB GetEnable: reg_enable
 
-  return readReg8(core#REG_ENABLE)
+    readRegX(core#REG_ENABLE, 8, @reg_enable)
 
-PUB GetPartID
+PUB GetPartID: reg_devid
 
-  return readReg8(core#REG_DEVID)
+    readRegX(core#REG_DEVID, 8, @reg_devid)
 
-PUB GetATIME
+PUB GetATIME: reg_atime
 
-  return readReg8(core#REG_ATIME)
+    readRegX(core#REG_ATIME, 8, @reg_atime)
 
-PUB GetStatus
+PUB GetStatus: reg_status
 
-  return readReg8(core#REG_STATUS)
+    readRegX(core#REG_STATUS, 8, @reg_status)
 
-PUB GetWTIME
+PUB GetWTIME: reg_wtime
 
-  return readReg8(core#REG_WTIME)
+    readRegX(core#REG_WTIME, 8, @reg_wtime)
+
+PUB GetRGBC(ptr_frame)
+
+    readRegX (core#REG_CDATAL, 8, ptr_frame)
 
 PUB IsIntEnabled | tmp
 ' Is the RGBC interrupt enabled?
@@ -270,77 +276,25 @@ PUB SetWaitTime (cycles) | cmd, wtime
 
     writeReg8 (core#REG_WTIME, wtime)
 
-PUB writeReg8(reg, data) | cmd
+PUB readRegX(reg, bytes, dest) | cmd
 'PRI
-    cmd.byte[0] := SLAVE_WR
-    cmd.byte[1] := core#CMD | core#TYPE_BYTE | reg
-'    cmd.word[0] := CMD_BYTE | (reg << 8) ' up-and-coming change
-    cmd.byte[2] := data
-
-    i2c.start
-    _ackbit := i2c.pwrite(@cmd, 3)
-    i2c.stop
-
-PUB writeReg16(reg, data_h, data_l) | cmd[2]
-'PRI
-    cmd.byte[0] := SLAVE_WR
-    cmd.byte[1] := core#CMD | core#TYPE_BLOCK | reg
-'    cmd.word[0] := CMD_BLOCK | (reg << 8) ' up-and-coming change
-    cmd.word[1] := data_h
-    cmd.word[2] := data_l
-
-    i2c.start
-    _ackbit := i2c.pwrite(@cmd, 6)
-    i2c.stop
-
-PUB readReg8(tcs_reg): data | cmd
-'PRI
-    ifnot lookdown(tcs_reg: $00, $01, $03..$07, $0C, $0D, $0F, $12..$1B) 'Validate register passed is an 8bit register
-        return
-
-    cmd.byte[0] := SLAVE_WR
-    cmd.byte[1] := core#CMD | core#TYPE_BYTE | tcs_reg  'Set up for single address read
+    case bytes
+        0:
+            return
+        1:
+            cmd.byte[0] := SLAVE_WR
+            cmd.byte[1] := core#CMD | core#TYPE_BYTE | reg
+        OTHER:
+            cmd.byte[0] := SLAVE_WR
+            cmd.byte[1] := core#CMD | core#TYPE_BLOCK | reg
 
     i2c.start
     _ackbit := i2c.pwrite (@cmd, 2)
-    if _ackbit == i2c#NAK
-        i2c.stop
-        return FALSE
-    data := readOne
-
-PUB readReg16(tcs_reg): data | cmd
-'PRI
-    ifnot lookdown(tcs_reg: $04, $06, $14, $16, $18, $1A) 'Validate register passed is a 16bit register
-        return $DEADC0DE  'XXX For testing only; remove for production
-
-    cmd.byte[0] := SLAVE_WR
-    cmd.byte[1] := core#CMD | core#TYPE_BLOCK | tcs_reg
-
-    i2c.start
-    _ackbit := i2c.pwrite (@cmd, 2)
-    if _ackbit == i2c#NAK
-        i2c.stop
-        return FALSE
-    readX (@data, 2)
-
-PUB readFrame(ptr_frame) | cmd, read_tmp[2], b
-'PRI
-    cmd.byte[0] := SLAVE_WR
-    cmd.byte[1] := core#CMD | core#TYPE_BLOCK | core#REG_CDATAL
-
-    i2c.start
-    _ackbit := i2c.pwrite (@cmd, 2)
-    if _ackbit == i2c#NAK
-        i2c.stop
-        return FALSE
 
     i2c.start
     i2c.write (SLAVE_RD)
-    i2c.pread (@read_tmp, 8, TRUE)
+    i2c.pread (dest, bytes, TRUE)
     i2c.stop
-
-    repeat b from 0 to 7
-        byte[ptr_frame][b] := read_tmp.byte[b]
 
 PUB readThresh: thresh | cmd, read_tmp
 
@@ -358,26 +312,31 @@ PUB readThresh: thresh | cmd, read_tmp
     i2c.pread (@thresh, 4, TRUE)
     i2c.stop
 
-PUB readOne: readbyte
-'PRI
+PRI writeReg8(reg, data) | cmd
+
+    cmd.byte[0] := SLAVE_WR
+    cmd.byte[1] := core#CMD | core#TYPE_BYTE | reg
+'    cmd.word[0] := CMD_BYTE | (reg << 8) ' up-and-coming change
+    cmd.byte[2] := data
+
     i2c.start
-    i2c.write (SLAVE_RD)
-    readbyte := i2c.read (TRUE)
+    _ackbit := i2c.pwrite(@cmd, 3)
     i2c.stop
 
-PUB readX(ptr_buff, num_bytes)
-'PRI
+PRI writeReg16(reg, data_h, data_l) | cmd[2]
+
+    cmd.byte[0] := SLAVE_WR
+    cmd.byte[1] := core#CMD | core#TYPE_BLOCK | reg
+'    cmd.word[0] := CMD_BLOCK | (reg << 8) ' up-and-coming change
+    cmd.word[1] := data_h
+    cmd.word[2] := data_l
+
     i2c.start
-    i2c.write (SLAVE_RD)
-    i2c.pread (@ptr_buff, num_bytes, TRUE)
+    _ackbit := i2c.pwrite(@cmd, 6)
     i2c.stop
 
-PUB writeOne(data)
-'PRI
-    WriteX (data, 1)
+PRI WriteX(ptr_buff, num_bytes)
 
-PUB WriteX(ptr_buff, num_bytes)
-'PRI
     i2c.start
     i2c.write (SLAVE_WR)
     i2c.pwrite (ptr_buff, num_bytes)
