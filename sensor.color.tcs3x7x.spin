@@ -29,7 +29,7 @@ OBJ
     i2c   : "jm_i2c_fast"
     time  : "time"
 
-PUB null
+PRI Null
 ''This is not a top-level object
 
 PUB Start: okay                                                 'Default to "standard" Propeller I2C pins and 400kHz
@@ -42,16 +42,10 @@ PUB Startx(SCL_PIN, SDA_PIN, I2C_HZ): okay
         if I2C_HZ =< core#I2C_MAX_FREQ
             if okay := i2c.setupx (SCL_PIN, SDA_PIN, I2C_HZ)    'I2C Object Started?
                 time.MSleep (1)
-                ifnot Ping
+                if i2c.present (SLAVE_WR)
                     return okay
 
     return FALSE                                                'If we got here, something went wrong
-
-PUB Ping: ack
-
-    i2c.start
-    ack := i2c.write (SLAVE_WR)
-    i2c.stop
 
 PUB EnableInts(enabled) | cmd, tmp, aen, wen, pon
 
@@ -60,8 +54,8 @@ PUB EnableInts(enabled) | cmd, tmp, aen, wen, pon
         OTHER:
             return
 
-    tmp := GetEnable        'We need to preserve the other bits in the register
-                            'before modifying the state of this bit, so read the reg first
+    tmp := getReg_ENABLE        'We need to preserve the other bits in the register
+                                'before modifying the state of this bit, so read the reg first
     wen := tmp >> 3 & %1
     aen := tmp >> 1 & %1
     pon := tmp & %1
@@ -69,14 +63,14 @@ PUB EnableInts(enabled) | cmd, tmp, aen, wen, pon
     tmp := ((enabled << 4) | (wen << 3) | (aen << 1) | pon) & $1F
     writeReg8 (core#REG_ENABLE, tmp)
 
-PUB EnableRGBC(enabled) | cmd, tmp, aien, wen, pon
+PUB EnableSensor(enabled) | cmd, tmp, aien, wen, pon
 
     case ||enabled
         0, 1: enabled := ||enabled
         OTHER: return FALSE
 
-    tmp := GetEnable        'We need to preserve the other bits in the register
-                            'before modifying the state of this bit, so read the reg first
+    tmp := getReg_ENABLE        'We need to preserve the other bits in the register
+                                'before modifying the state of this bit, so read the reg first
     aien := tmp >> 4 & %1
     wen := tmp >> 3 & %1
     pon := tmp & %1
@@ -90,8 +84,8 @@ PUB EnableWait(enabled) | cmd, tmp, aien, aen, pon
         0, 1: enabled := || enabled
         OTHER:  return FALSE
 
-    tmp := GetEnable        'We need to preserve the other bits in the register
-                            'before modifying the state of this bit, so read the reg first
+    tmp := getReg_ENABLE        'We need to preserve the other bits in the register
+                                'before modifying the state of this bit, so read the reg first
     aien := tmp >> 4 & %1
     aen := tmp >> 1 & %1
     pon := tmp & %1
@@ -109,106 +103,86 @@ PUB EnableWaitLong(enabled) | cmd, tmp, aien, aen, pon
 
     writeReg8 (core#REG_CONFIG, enabled << 1)
 
-' XXX Should any of the Get* methods that return other than boolean values return parsed values?
-PUB GetAEN
+PUB Gain
 
-  return (GetEnable >> 1) & %1
-
-PUB GetAIEN
-
-  return (GetEnable >> 4) & %1
-
-PUB GetConfig: reg_config
-
-  readRegX(core#REG_CONFIG, 1, @reg_config)
-  reg_config := (reg_config >> 1) & %1
-
-PUB GetGain: gain
-
-  readRegX(core#REG_CONTROL, 1, @gain)
-  gain &= %11
-
-PUB GetWEN
-
-    return (GetEnable >> 3) & %1
-
-PUB GetEnable: reg_enable
-
-    readRegX(core#REG_ENABLE, 8, @reg_enable)
+    readRegX(core#REG_CONTROL, 1, @result)
+    result &= %11
 
 PUB GetPartID: reg_devid
 
     readRegX(core#REG_DEVID, 8, @reg_devid)
 
-PUB GetATIME: reg_atime
-
-    readRegX(core#REG_ATIME, 8, @reg_atime)
-
 PUB GetStatus: reg_status
 
     readRegX(core#REG_STATUS, 8, @reg_status)
-
-PUB GetWTIME: reg_wtime
-
-    readRegX(core#REG_WTIME, 8, @reg_wtime)
 
 PUB GetRGBC(ptr_frame)
 
     readRegX (core#REG_CDATAL, 8, ptr_frame)
 
-PUB IsIntEnabled | tmp
+PUB IntsEnabled
 ' Is the RGBC interrupt enabled?
 ' Gets the AIEN bit from the ENABLE register, and promotes to TRUE
-  tmp := GetAIEN * TRUE
-  return tmp
+    return ((getReg_ENABLE >> 4) & %1) * TRUE
 
-PUB IsPowered | tmp
+PUB IntThreshold: thresh | cmd, read_tmp
+
+    cmd.byte[0] := SLAVE_WR
+    cmd.byte[1] := core#CMD | core#TYPE_BLOCK | core#REG_AILTL
+
+    i2c.start
+    _ackbit := i2c.pwrite (@cmd, 2)
+    if _ackbit == i2c#NAK
+        i2c.stop
+        return FALSE
+
+    i2c.start
+    i2c.write (SLAVE_RD)
+    i2c.pread (@thresh, 4, TRUE)
+    i2c.stop
+
+PUB Powered | tmp
 ' Is the sensor powered up?
 ' Gets the PON bit from the ENABLE register, and promotes to TRUE
-  tmp := (GetEnable & %1) * TRUE
-  return tmp
+    tmp := (getReg_ENABLE & %1) * TRUE
+    return tmp
 
-PUB IsRGBCEnabled | tmp
+PUB SensorEnabled
 ' Are the sensor's RGBC ADC's enabled?
 ' Gets the AEN bit from the ENABLE register, and promotes to TRUE
+    return ((getReg_ENABLE >> 1) & %1) * TRUE
 
-  tmp := GetAEN * TRUE
-  return tmp
-
-PUB IsWaitEnabled | tmp
+PUB WaitEnabled
 ' Is the sensor's wait timer enabled?
 ' Gets the WEN bit from the ENABLE register, and promotes to TRUE
+    return ((getReg_ENABLE >> 3) & %1) * TRUE
 
-  tmp := GetWEN * TRUE
-  return tmp
-
-PUB IsWaitLongEnabled | tmp
+PUB WaitLongEnabled
 ' Are long wait times enabled?
 ' Gets the WLONG bit from the CONFIG register, and promotes to TRUE
+    readRegX(core#REG_CONFIG, 1, @result)
+    result := (result >> 1) & %1
 
-  tmp := GetConfig * TRUE
-  return tmp
+PUB Power(enabled) | cmd, tmp, aien, wen, aen
 
-PUB Power(powered) | cmd, tmp, aien, wen, aen
-
-    case ||powered
-        0, 1: powered := ||powered
+    case ||enabled
+        0, 1: enabled := ||enabled
         OTHER: return FALSE
 
-    tmp := GetEnable    'We need to preserve the other bits in the register
+    tmp := getReg_ENABLE    'We need to preserve the other bits in the register
                         'before modifying the state of this bit, so read the reg first
     aien := tmp >> 4 & %1
     wen := tmp >> 3 & %1
     aen := tmp >> 1 & %1
 
-    tmp := ((aien << 4) | (wen << 3) | (aen << 1) | powered) & $1F
+    tmp := ((aien << 4) | (wen << 3) | (aen << 1) | enabled) & $1F
 
     writeReg8 (core#REG_ENABLE, tmp)
 
-    if powered
+    if enabled
         time.USleep (2400)  'Wait 2.4ms per datasheet p.15
 
-PUB SetGain (factor) | again, cmd
+PUB SetGain (factor) | again
 '' RGBC Gain Control
 ''  Set amplifier gain to 1x (power-on default), 4x, 16x or 60x
     case factor
@@ -221,7 +195,7 @@ PUB SetGain (factor) | again, cmd
 
     writeReg8 (core#REG_CONTROL, again & %11)
 
-PUB SetIntegrationTime (cycles) | atime, cmd
+PUB SetIntegrationTime (cycles) | atime
 '' ADC Integration time, in cycles
 ''  Each cycle is approx 2.4ms (exception: 256 cycles is 700ms)
 ''  Max resolution (65535 ADC counts) achieved with 64..256
@@ -244,7 +218,7 @@ PUB SetIntThreshold(low_thresh, high_thresh)
 
     writeReg16 (core#REG_AILTL, low_thresh, high_thresh)
 
-PUB SetPersistence (cycles) | cmd, apers
+PUB SetPersistence (cycles) | apers
 '' Interrupt persistence, in cycles
 ''  How many consecutive measurements that have to be outside the set threshold
 ''  before an interrupt is actually triggered
@@ -262,7 +236,7 @@ PUB SetPersistence (cycles) | cmd, apers
 
     writeReg8 (core#REG_APERS, apers)
 
-PUB SetWaitTime (cycles) | cmd, wtime
+PUB SetWaitTime (cycles) | wtime
 '' Wait time, in cycles
 ''  Each cycle is approx 2.4ms
 ''  unless the WLONG bit in the CONFIG register is set,
@@ -276,8 +250,21 @@ PUB SetWaitTime (cycles) | cmd, wtime
 
     writeReg8 (core#REG_WTIME, wtime)
 
-PUB readRegX(reg, bytes, dest) | cmd
-'PRI
+
+PRI getReg_ATIME: reg_atime
+
+    readRegX(core#REG_ATIME, 8, @reg_atime)
+
+PRI getReg_ENABLE: reg_enable
+
+    readRegX(core#REG_ENABLE, 8, @reg_enable)
+
+PRI getReg_WTIME: reg_wtime
+
+    readRegX(core#REG_WTIME, 8, @reg_wtime)
+
+PRI readRegX(reg, bytes, dest) | cmd
+
     case bytes
         0:
             return
@@ -294,22 +281,6 @@ PUB readRegX(reg, bytes, dest) | cmd
     i2c.start
     i2c.write (SLAVE_RD)
     i2c.pread (dest, bytes, TRUE)
-    i2c.stop
-
-PUB readThresh: thresh | cmd, read_tmp
-
-    cmd.byte[0] := SLAVE_WR
-    cmd.byte[1] := core#CMD | core#TYPE_BLOCK | core#REG_AILTL
-
-    i2c.start
-    _ackbit := i2c.pwrite (@cmd, 2)
-    if _ackbit == i2c#NAK
-        i2c.stop
-        return FALSE
-
-    i2c.start
-    i2c.write (SLAVE_RD)
-    i2c.pread (@thresh, 4, TRUE)
     i2c.stop
 
 PRI writeReg8(reg, data) | cmd

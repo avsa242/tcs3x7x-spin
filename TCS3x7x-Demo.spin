@@ -17,15 +17,14 @@ CON
   LED               = 25
 
   DISP_HELP         = 1
-  PRINT_REGS        = 2
-  TOGGLE_POWER      = 3
-  TOGGLE_RGBC       = 4
-  PRINT_RGBC        = 5
-  TOGGLE_INTS       = 6
-  TOGGLE_WAIT       = 7
-  TOGGLE_LED        = 8
-  TOGGLE_WAITLONG   = 9
-  WAITING           = 10
+  TOGGLE_POWER      = 2
+  TOGGLE_RGBC       = 3
+  PRINT_RGBC        = 4
+  TOGGLE_INTS       = 5
+  TOGGLE_WAIT       = 6
+  TOGGLE_LED        = 7
+  TOGGLE_WAITLONG   = 8
+  WAITING           = 9
 
 OBJ
 
@@ -54,7 +53,6 @@ PUB Main
 
   repeat
     case _demo_state
-      PRINT_REGS:       PrintRegs
       DISP_HELP:        Help
       TOGGLE_POWER:     TogglePower
       TOGGLE_RGBC:      ToggleRGBC
@@ -66,42 +64,6 @@ PUB Main
       WAITING:          waitkey
       OTHER:
         _demo_state := DISP_HELP
-
-PUB PrintRegs | rec_size, table_offs, maj_col, regval_tmp, col_sz, start_row, row
-
-  ser.Clear
-  rec_size := 9
-  col_sz := (rec_size - 2) + 6  'Major columns accomodate register name, equals, register value, and space padding
-  maj_col := 0
-  start_row := 2
-  _max_cols := 4
-
-  ser.Position (0, 0)
-  ser.Str (string("TCS3x7x Register Map:"))
-  row := start_row
-
-  repeat table_offs from 1 to (tcs_regmap*8) step rec_size
-    ser.Position (col_sz * maj_col, row)
-    ser.Str (@tcs_regmap[table_offs+1])
-    ser.Str (string("= "))
-    maj_col++
-    if maj_col == _max_cols
-      row++
-      maj_col := 0
-
-  row := start_row
-  maj_col := 0
-  repeat until _demo_state <> PRINT_REGS
-    repeat table_offs from 1 to (tcs_regmap*8) step rec_size
-      rgb.readRegX (tcs_regmap[table_offs], 1, @regval_tmp)
-      ser.Position ((col_sz * maj_col) + (col_sz-4), row)
-      ser.Hex (regval_tmp, 2)
-      maj_col++
-      if maj_col == _max_cols
-        row++
-        maj_col := 0
-    row := start_row
-    time.MSleep (100)
 
 PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata, cmax, i
 
@@ -183,7 +145,7 @@ PUB ToggleInts | tmp
 
   ser.NewLine
   ser.Str (string("Turning Interrupts "))
-  tmp := rgb.IsIntEnabled
+  tmp := rgb.IntsEnabled
   if tmp
     ser.Str (string("off", ser#NL))
     rgb.EnableInts (FALSE)
@@ -197,7 +159,7 @@ PUB TogglePower | tmp
 
   ser.NewLine
   ser.Str (string("Turning Power "))
-  tmp := rgb.IsPowered
+  tmp := rgb.Powered
   if tmp
     ser.Str (string("off", ser#NL))
     rgb.Power (FALSE)
@@ -211,13 +173,13 @@ PUB ToggleRGBC | tmp
 
   ser.NewLine
   ser.Str (string("Turning RGBC "))
-  tmp := rgb.IsRGBCEnabled
+  tmp := rgb.SensorEnabled
   if tmp
     ser.Str (string("off", ser#NL))
-    rgb.EnableRGBC (FALSE)
+    rgb.EnableSensor (FALSE)
   else
     ser.Str (string("on", ser#NL))
-    rgb.EnableRGBC (TRUE)
+    rgb.EnableSensor (TRUE)
 
   waitkey
 
@@ -225,7 +187,7 @@ PUB ToggleWait | tmp
 
   ser.NewLine
   ser.Str (string("Turning Wait timer "))
-  tmp := rgb.IsWaitEnabled
+  tmp := rgb.WaitEnabled
   if tmp
     ser.Str (string("off", ser#NL))
     rgb.EnableWait (FALSE)
@@ -240,7 +202,7 @@ PUB ToggleWaitLong | tmp
 
   ser.NewLine
   ser.Str (string("Turning Long Waits "))
-  tmp := rgb.IsWaitLongEnabled
+  tmp := rgb.WaitLongEnabled
   if tmp
     ser.Str (string("off", ser#NL))
     rgb.EnableWaitLong (FALSE)
@@ -272,10 +234,6 @@ PUB keyDaemon | key_cmd
         _prev_state := _demo_state
         _demo_state := TOGGLE_LED
 
-      "r", "r":
-        _prev_state := _demo_state
-        _demo_state := PRINT_REGS
-
       "p", "P":
         _prev_state := _demo_state
         _demo_state := TOGGLE_POWER
@@ -299,19 +257,6 @@ PUB keyDaemon | key_cmd
           _prev_state := _demo_state
           _demo_state := DISP_HELP
 
-PUB rule(cols, ind, hash_char) | i
-''Method to draw a rule on a terminal
-  repeat i from 0 to cols-1
-    case i
-      0:
-        ser.char(":")
-      OTHER:
-        ifnot i//ind
-          ser.Char (":")
-        else
-          ser.Char (hash_char)
-  ser.NewLine
-
 PUB waitkey
 
   _demo_state := WAITING
@@ -328,7 +273,6 @@ PUB Help
   ser.Str (string("l, L:  Toggle LED Strobe", ser#NL))
   ser.Str (string("p, P:  Toggle sensor power", ser#NL))
   ser.Str (string("q, Q:  Toggle Long Waits", ser#NL))
-  ser.Str (string("r, R:  Display register contents", ser#NL))
   ser.Str (string("s, S:  Display RGBC sensor data", ser#NL))
   ser.Str (string("w, W:  Toggle Wait timer", ser#NL))
 
@@ -352,22 +296,6 @@ PUB Setup
     ser.Stop
     debug.LEDSlow (cfg#LED1)
   _max_cols := 1
-
-DAT
-
-  tcs_regmap  byte 13
-  byte $00, "ENABLE ", 0
-  byte $01, "ATIME  ", 0
-  byte $03, "WTIME  ", 0
-  byte $04, "AILTL  ", 0
-  byte $05, "AILTH  ", 0
-  byte $06, "AIHTL  ", 0
-  byte $07, "AIHTH  ", 0
-  byte $0C, "PERS   ", 0
-  byte $0D, "CONFIG ", 0
-  byte $0F, "CONTROL", 0
-  byte $12, "ID     ", 0
-  byte $13, "STATUS ", 0
 
 DAT
 {
