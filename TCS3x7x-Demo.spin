@@ -11,21 +11,23 @@
 
 CON
 
-    _clkmode          = cfg#_clkmode
-    _xinfreq          = cfg#_xinfreq
+    _clkmode        = cfg#_clkmode
+    _xinfreq        = cfg#_xinfreq
 
 ' I/O Pin connected to the (optional) on-board white LED
-    LED               = 25
+    LED             = 25
 ' Demo mode constants
-    DISP_HELP         = 1
-    TOGGLE_POWER      = 2
-    TOGGLE_RGBC       = 3
-    PRINT_RGBC        = 4
-    TOGGLE_INTS       = 5
-    TOGGLE_WAIT       = 6
-    TOGGLE_LED        = 7
-    TOGGLE_WAITLONG   = 8
-    WAITING           = 9
+    DISP_HELP       = 1
+    TOGGLE_POWER    = 2
+    TOGGLE_RGBC     = 3
+    PRINT_RGBC      = 4
+    TOGGLE_INTS     = 5
+    TOGGLE_WAIT     = 6
+    TOGGLE_LED      = 7
+    TOGGLE_WAITLONG = 8
+    CYCLE_GAIN      = 9
+    CLEAR_INTS      = 10
+    WAITING         = 11
 
 OBJ
 
@@ -47,30 +49,42 @@ VAR
 PUB Main
 
     Setup
-    rgb.SetGain (rgb#GAIN_DEF)
-    rgb.SetIntThreshold ($0001, $00A0)
+    ser.Clear
+    rgb.SetIntThreshold ($0000, $0200)
+    rgb.SetPersistence (5)
 
     repeat
         case _demo_state
-            DISP_HELP:        Help
-            TOGGLE_POWER:     TogglePower
-            TOGGLE_RGBC:      ToggleRGBC
-            PRINT_RGBC:       PrintRGBC
-            TOGGLE_INTS:      ToggleInts
-            TOGGLE_WAIT:      ToggleWait
-            TOGGLE_LED:       ToggleLED
-            TOGGLE_WAITLONG:  ToggleWaitLong
-            WAITING:          waitkey
+            DISP_HELP:          Help
+            TOGGLE_POWER:       TogglePower
+            TOGGLE_RGBC:        ToggleRGBC
+            PRINT_RGBC:         PrintRGBC
+            TOGGLE_INTS:        ToggleInts
+            TOGGLE_WAIT:        ToggleWait
+            TOGGLE_LED:         ToggleLED
+            TOGGLE_WAITLONG:    ToggleWaitLong
+            CYCLE_GAIN:         CycleGain
+            CLEAR_INTS:         ClearInts
+            WAITING:            waitkey
             OTHER:
                 _demo_state := DISP_HELP
 
-PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata, cmax, i
+PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata, cmax, i, int, thr
 
     ser.Clear
     ser.Position (0, 0)
     ser.Str (string("Gain: "))
-    ser.Dec (rgb.Gain)
-    ser.Char ("x")
+
+    ser.Position (10, 0)
+    ser.Str (string("Ints: "))
+
+    ser.Position (30, 0)
+    ser.Str (string("Thr: "))
+    thr := rgb.IntThreshold
+    ser.Hex (thr & $FFFF, 4)
+    ser.Char ("-")
+    ser.Hex ((thr >> 16) & $FFFF, 4)
+
     ser.NewLine
     ser.Str (string("TCS3x7x RGBC Data (dominant color channel surrounded by [ ]):"))
 
@@ -87,6 +101,21 @@ PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata, cmax, i
         if _led_enabled
             io.High (LED)
         rgb.GetRGBC (@rgbc_data)
+
+        ser.Position (6, 0)
+        ser.Dec (rgb.Gain)
+        ser.Str (string("x "))
+
+        int := ||rgb.IntsEnabled
+        ser.Position (16, 0)
+        ser.Str (lookupz(int: string("Off"), string("On ")))
+
+        if rgb.Interrupt
+            ser.Position (19, 0)
+            ser.Str (string("(!)"))
+        else
+            ser.Position (19, 0)
+            ser.Str (string("   "))
         io.Low (LED)
 
         '     0       1       2       3       4       5       6       7
@@ -127,7 +156,21 @@ PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata, cmax, i
                 ser.Char (" ")
                 ser.Position (8, i + 1)
                 ser.Str (string("  "))
-        time.MSleep (100)
+
+PUB ClearInts
+
+    rgb.ClearInt
+    _demo_state := _prev_state
+
+PUB CycleGain
+
+    case rgb.Gain
+        1: rgb.SetGain (4)
+        4: rgb.SetGain (16)
+        16: rgb.SetGain (60)
+        60: rgb.SetGain (1)
+
+    _demo_state := _prev_state
 
 PUB ToggleLED
 
@@ -145,16 +188,12 @@ PUB ToggleLED
 
 PUB ToggleInts | tmp
 
-    ser.NewLine
-    ser.Str (string("Turning Interrupts "))
     tmp := rgb.IntsEnabled
     if tmp
-        ser.Str (string("off", ser#NL))
         rgb.EnableInts (FALSE)
     else
-        ser.Str (string("on", ser#NL))
         rgb.EnableInts (TRUE)
-    waitkey
+    _demo_state := _prev_state
 
 PUB TogglePower | tmp
 
@@ -221,6 +260,14 @@ PUB keyDaemon | key_cmd
                 _prev_state := _demo_state
                 _demo_state := TOGGLE_RGBC
 
+            "c", "C":
+                _prev_state := _demo_state
+                _demo_state := CLEAR_INTS
+
+            "g", "G":
+                _prev_state := _demo_state
+                _demo_state := CYCLE_GAIN
+
             "i", "I":
                 _prev_state := _demo_state
                 _demo_state := TOGGLE_INTS
@@ -262,13 +309,15 @@ PUB Help
 
     ser.Clear
     ser.Str (string("Keys: ", ser#NL, ser#NL))
-    ser.Str (string("a, A:  Toggle RGBC (ADC)", ser#NL))
+    ser.Str (string("a, A:  Toggle sensor data acquisition (ADCs)", ser#NL))
+    ser.Str (string("c, C:  Clear interrupt", ser#NL))
+    ser.Str (string("g, G:  Cycle gain setting", ser#NL))
     ser.Str (string("h, H:  This help screen", ser#NL))
-    ser.Str (string("i, I:  Toggle RGBC Interrupts", ser#NL))
+    ser.Str (string("i, I:  Toggle sensor interrupt pin enable (NOTE: Doesn't affect interrupt bit in sensor's status register)", ser#NL))
     ser.Str (string("l, L:  Toggle LED Strobe", ser#NL))
     ser.Str (string("p, P:  Toggle sensor power", ser#NL))
     ser.Str (string("q, Q:  Toggle Long Waits", ser#NL))
-    ser.Str (string("s, S:  Display RGBC sensor data", ser#NL))
+    ser.Str (string("s, S:  Monitor sensor data", ser#NL))
     ser.Str (string("w, W:  Toggle Wait timer", ser#NL))
 
     repeat until _demo_state <> DISP_HELP

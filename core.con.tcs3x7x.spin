@@ -55,8 +55,8 @@ CON
     REG_BDATAL        = $1A       'BLUE DATA
     REG_BDATAH        = $1B
 
-PRI Null
-''This is not a top-level object
+PUB Null
+' This is not a top-level object
 
 DAT
 {
