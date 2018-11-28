@@ -4,7 +4,7 @@
     Author: Jesse Burt
     Copyright (c) 2018
     Started: Jun 24, 2018
-    Updated: Nov 26, 2018
+    Updated: Nov 27, 2018
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -14,8 +14,9 @@ CON
     _clkmode        = cfg#_clkmode
     _xinfreq        = cfg#_xinfreq
 
-' I/O Pin connected to the (optional) on-board white LED
-    LED             = 25
+' I/O Pin connected to the (optional) on-board white LED and INT pin
+    LED_PIN             = 25
+    INT_PIN             = 24
 ' Demo mode constants
     DISP_HELP       = 1
     TOGGLE_POWER    = 2
@@ -27,7 +28,11 @@ CON
     TOGGLE_WAITLONG = 8
     CYCLE_GAIN      = 9
     CLEAR_INTS      = 10
-    WAITING         = 11
+    LOWINTDEC       = 11
+    LOWINTINC       = 12
+    HIINTDEC        = 13
+    HIINTINC        = 14
+    WAITING         = 15
 
 OBJ
 
@@ -40,18 +45,20 @@ OBJ
 
 VAR
 
-    long  _keyDaemon_stack[100]
-    byte  _keyDaemon_cog, _rgb_cog, _ser_cog
-    byte  _demo_state, _prev_state
-    byte  _max_cols
-    byte  _led_enabled
+    long _keyDaemon_stack[50], _isr_stack[50]
+    byte _keyDaemon_cog, _rgb_cog, _ser_cog, _isr_cog
+    byte _demo_state, _prev_state
+    byte _max_cols
+    byte _led_enabled
+    byte _int
 
 PUB Main
 
     Setup
     ser.Clear
-    rgb.SetIntThreshold ($0000, $0200)
+    rgb.SetIntThreshold ($0F00, $A000)
     rgb.SetPersistence (5)
+    rgb.SetIntegrationTime (64)
 
     repeat
         case _demo_state
@@ -65,97 +72,124 @@ PUB Main
             TOGGLE_WAITLONG:    ToggleWaitLong
             CYCLE_GAIN:         CycleGain
             CLEAR_INTS:         ClearInts
+            LOWINTINC:          ChangeThresh(0, 256)
+            LOWINTDEC:          ChangeThresh(0, -256)
+            HIINTINC:           ChangeThresh(1, 256)
+            HIINTDEC:           ChangeThresh(1, -256)
             WAITING:            waitkey
             OTHER:
                 _demo_state := DISP_HELP
 
-PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata, cmax, i, int, thr
+PUB ISR
+' Soft Interrupt Service Routine XXX - not functional
+    io.Output (cfg#LED2)
+    repeat
+        waitpne(|<INT_PIN, |<INT_PIN, 0)
+        _int := TRUE
+        io.High (cfg#LED2)
 
+        waitpeq(|<INT_PIN, |<INT_PIN, 0)
+        _int := FALSE
+        io.Low (cfg#LED2)
+
+PUB Graph(graphx, graphy, in, inmin, inmax, outrange, grads, exc_lo, exc_hi) | output, scale, inrange, bar
+' Calculate
+    scale := 10
+    inrange := inmax-inmin
+    output := ((((in << scale)-(inmin << scale)) / inrange) * outrange) >> scale
+    exc_lo := ((((exc_lo << scale)-(inmin << scale)) / inrange) * outrange) >> scale
+    exc_hi := ((((exc_hi << scale)-(inmin << scale)) / inrange) * outrange) >> scale
+
+' Graduations
+    if grads
+        repeat bar from 0 to outrange
+            case bar
+                exc_lo:
+                    ser.Position (graphx + bar, graphy-1)
+                    ser.Char ("L")
+                exc_hi:
+                    ser.Position (graphx + bar, graphy-1)
+                    ser.Char ("H")
+                0..outrange:
+                    if bar//5 == 0
+                        ser.Position (graphx + bar, graphy-1)
+                        ser.Char ("|")
+' Graph
+    repeat bar from 0 to outrange
+        ser.Position (graphx + bar, graphy)
+        if bar =< output
+            ser.Char ("#")
+        else
+            ser.Char (" ")
+
+PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata, cmax, i, int, thr, rrow, grow, brow, crow
+
+    crow := 4
+    rrow := crow + 1
+    grow := crow + 2
+    brow := crow + 3
     ser.Clear
     ser.Position (0, 0)
     ser.Str (string("Gain: "))
 
-    ser.Position (10, 0)
+    ser.Position (11, 0)
     ser.Str (string("Ints: "))
+    int := ||rgb.IntsEnabled
+    ser.Position (17, 0)
+    ser.Str (lookupz(int: string("Off"), string("On ")))
 
-    ser.Position (30, 0)
+    ser.Position (21, 0)
     ser.Str (string("Thr: "))
     thr := rgb.IntThreshold
     ser.Hex (thr & $FFFF, 4)
     ser.Char ("-")
     ser.Hex ((thr >> 16) & $FFFF, 4)
 
-    ser.NewLine
-    ser.Str (string("TCS3x7x RGBC Data (dominant color channel surrounded by [ ]):"))
-
-    ser.Position (1, 2)
-    ser.Str (string(" Red"))
-    ser.Position (1, 3)
-    ser.Str (string(" Green"))
-    ser.Position (1, 4)
-    ser.Str (string(" Blue"))
-    ser.Position (1, 5)
-    ser.Str (string(" Clear"))
+    ser.Position (0, crow)
+    ser.Str (string("Clear"))
+    ser.Position (0, rrow)
+    ser.Str (string("Red"))
+    ser.Position (0, grow)
+    ser.Str (string("Green"))
+    ser.Position (0, brow)
+    ser.Str (string("Blue"))
 
     repeat until _demo_state <> PRINT_RGBC
         if _led_enabled
-            io.High (LED)
+            io.High (LED_PIN)
         rgb.GetRGBC (@rgbc_data)
 
         ser.Position (6, 0)
         ser.Dec (rgb.Gain)
         ser.Str (string("x "))
 
-        int := ||rgb.IntsEnabled
-        ser.Position (16, 0)
-        ser.Str (lookupz(int: string("Off"), string("On ")))
+        io.Low (LED_PIN)
 
-        if rgb.Interrupt
-            ser.Position (19, 0)
-            ser.Str (string("(!)"))
-        else
-            ser.Position (19, 0)
-            ser.Str (string("   "))
-        io.Low (LED)
+        ser.Position (55, 0)
+        ser.Dec (ina[INT_PIN])
 
-        '     0       1       2       3       4       5       6       7
-        'cdatal, cdatah, rdatal, rdatah, gdatal, gdatah, bdatal, bdatah
         cdata := ((rgbc_data.byte[1] << 8) | rgbc_data.byte[0]) & $FFFF
         rdata := ((rgbc_data.byte[3] << 8) | rgbc_data.byte[2]) & $FFFF
         gdata := ((rgbc_data.byte[5] << 8) | rgbc_data.byte[4]) & $FFFF
         bdata := ((rgbc_data.byte[7] << 8) | rgbc_data.byte[6]) & $FFFF
 
-        cmax := %00
-        if rdata > gdata and rdata > bdata
-            cmax := %01
-        if gdata > rdata and gdata > bdata
-            cmax := %10
-        if bdata > rdata and bdata > gdata
-            cmax := %11
+        Graph (6, crow, cdata, 0, 65535, 70, TRUE, thr & $FFFF, (thr >> 16) & $FFFF)
+        Graph (6, rrow, rdata, 0, 65535, 70, FALSE, 0, 0)
+        Graph (6, grow, gdata, 0, 65535, 70, FALSE, 0, 0)
+        Graph (6, brow, bdata, 0, 65535, 70, FALSE, 0, 0)
 
-        ser.Position (10, 2)
-        ser.Hex (rdata, 4)
+PUB ChangeThresh(lim, delta) | tmp
+' Change interrupt thresholds
+    case lim
+        0:  'Change low threshold
+            tmp := rgb.IntThreshold
+            rgb.SetIntThreshold (0 #> ((tmp & $FFFF) + delta) <# $FFFF, (tmp >> 16) & $FFFF)
+        1:  'Change high threshold
+            tmp := rgb.IntThreshold
+            rgb.SetIntThreshold (tmp & $FFFF, 0 #> ((tmp >> 16) & $FFFF) + delta <# $FFFF)
+        OTHER:
 
-        ser.Position (10, 3)
-        ser.Hex (gdata, 4)
-
-        ser.Position (10, 4)
-        ser.Hex (bdata, 4)
-
-        ser.Position (10, 5)
-        ser.Hex (cdata, 4)
-
-        repeat i from %01 to %11
-            if cmax == i
-                ser.Position (0, i + 1)
-                ser.Char ("[")
-                ser.Position (8, i + 1)
-                ser.Str (string("] "))
-            else
-                ser.Position (0, i + 1)
-                ser.Char (" ")
-                ser.Position (8, i + 1)
-                ser.Str (string("  "))
+    _demo_state := _prev_state
 
 PUB ClearInts
 
@@ -180,7 +214,7 @@ PUB ToggleLED
     if _led_enabled
         _led_enabled := FALSE
         ser.Str (string("off", ser#NL))
-        io.Low (LED)  'Turn off explicitly, just to be sure
+        io.Low (LED_PIN)  'Turn off explicitly, just to be sure
     else
         ser.Str (string("on", ser#NL))
         _led_enabled := TRUE
@@ -261,8 +295,9 @@ PUB keyDaemon | key_cmd
                 _demo_state := TOGGLE_RGBC
 
             "c", "C":
-                _prev_state := _demo_state
-                _demo_state := CLEAR_INTS
+                if _demo_state == PRINT_RGBC
+                    _prev_state := _demo_state
+                    _demo_state := CLEAR_INTS
 
             "g", "G":
                 _prev_state := _demo_state
@@ -292,6 +327,26 @@ PUB keyDaemon | key_cmd
                 _prev_state := _demo_state
                 _demo_state := TOGGLE_WAIT
 
+            "-", "_":
+                if _demo_state == PRINT_RGBC
+                    _prev_state := _demo_state
+                    _demo_state := LOWINTDEC
+
+            "=", "+":
+                if _demo_state == PRINT_RGBC
+                    _prev_state := _demo_state
+                    _demo_state := LOWINTINC
+
+            "[", "{":
+                if _demo_state == PRINT_RGBC
+                    _prev_state := _demo_state
+                    _demo_state := HIINTDEC
+
+            "]", "}":
+                if _demo_state == PRINT_RGBC
+                    _prev_state := _demo_state
+                    _demo_state := HIINTINC
+
             OTHER:
                 if _demo_state == WAITING
                     _demo_state := _prev_state
@@ -319,13 +374,15 @@ PUB Help
     ser.Str (string("q, Q:  Toggle Long Waits", ser#NL))
     ser.Str (string("s, S:  Monitor sensor data", ser#NL))
     ser.Str (string("w, W:  Toggle Wait timer", ser#NL))
+    ser.Str (string("-, +:  Adjust interrupt low-threshold", ser#NL))
+    ser.Str (string("[, ]:  Adjust interrupt high-threshold", ser#NL))
 
     repeat until _demo_state <> DISP_HELP
 
 PUB Setup
 
-    io.Output (LED)
-    io.Low (LED)
+    io.Output (LED_PIN)
+    io.Low (LED_PIN)
 
     repeat until _ser_cog := ser.Start (115_200)
     ser.Clear
@@ -339,6 +396,7 @@ PUB Setup
         ser.Stop
         debug.LEDSlow (cfg#LED1)
     _max_cols := 1
+    _isr_cog := cognew(ISR, @_isr_stack)
 
 DAT
 {
