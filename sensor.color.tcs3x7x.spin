@@ -221,23 +221,27 @@ PUB Power(enabled) | tmp
     if enabled
         time.USleep (2400)  'Wait 2.4ms per datasheet p.15
 
-PUB SetPersistence (cycles) | apers
-' Interrupt persistence, in cycles
-'   How many consecutive measurements that have to be outside the set threshold
+PUB Persistence (cycles) | tmp
+' Set Interrupt persistence, in cycles
+'   Defines how many consecutive measurements must be outside the interrupt threshold (Set with IntThreshold)
 '   before an interrupt is actually triggered (e.g., to reduce false positives)
 '   Valid values:
 '       0 - _Every measurement_ triggers an interrupt, _regardless_
 '       1 - Every measurement _outside your set threshold_ triggers an interrupt
 '       2 - Must be 2 consecutive measurements outside the set threshold to trigger an interrupt
 '       3 - Must be 3 consecutive measurements outside the set threshold to trigger an interrupt
-'       5..60 (multiples of 5)
-'   Invalid values ignored
+'       5..60 - _n_ consecutive measurements, in multiples of 5
+'   Any other value polls the chip and returns the current setting
+    readRegX (core#PERS, 1, @tmp)
     case cycles
-        0..3:   apers := cycles
-        5..60:  apers := cycles / 5 + 3
-        OTHER:  return FALSE
+        0..3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60:
+            cycles := lookdownz(cycles: 0, 1, 2, 3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60) & core#BITS_APERS
+        OTHER:
+            result := tmp & core#BITS_APERS
+            return lookupz(result: 0, 1, 2, 3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60)
 
-    writeRegX (core#APERS, 1, apers)'reg, bytes, val)
+    tmp &= core#PERS_MASK
+    writeRegX (core#PERS, 1, tmp)
 
 PUB SetWaitTime (cycles) | wtime
 ' Wait time, in cycles (see EnableWait)

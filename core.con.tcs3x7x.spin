@@ -49,8 +49,10 @@ CON
     AIHTL               = $06
     AIHTH               = $07
 
-    APERS               = $0C
-    APERS_MASK          = $0F
+    PERS                = $0C
+    PERS_MASK           = $0F
+        FLD_APERS       = 0
+        BITS_APERS      = %1111
 
     CONFIG              = $0D
     CONFIG_MASK         = $02
