@@ -56,6 +56,7 @@ CON
 
     CONFIG              = $0D
     CONFIG_MASK         = $02
+        FLD_WLONG       = 1
 
     CONTROL             = $0F
     CONTROL_MASK        = $03

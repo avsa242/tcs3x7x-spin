@@ -117,17 +117,22 @@ PUB WaitTimer(enabled) | cmd, tmp, aien, aen, pon
     tmp := (tmp | enabled) & core#ENABLE_MASK
     writeRegX (core#ENABLE, 1, tmp)
 
-PUB EnableWaitLong(enabled) | cmd, tmp, aien, aen, pon
+PUB WaitLongTimer(enabled) | tmp
 ' Enable longer wait time cycles
 '   If enabled, wait cycles set using the SetWaitTime method are increased by a factor of 12x
 '   Valid values: FALSE, TRUE or 1
-
-' XXX Investigate merging this functionality with SetWaitTime to simplify use
+'   Any other value polls the chip and returns the current setting
+' XXX Investigate merging this functionality with WaitTimer to simplify use
+    readRegX(core#CONFIG, 1, @tmp)
     case ||enabled
-        0, 1: enabled := (||enabled) << 1
-        OTHER: return FALSE
+        0, 1:
+            enabled := (||enabled) << core#FLD_WLONG
+        OTHER:
+            result := (tmp >> core#FLD_WLONG)
+            return result := (result & %1) * TRUE
 
-    writeRegX (core#CONFIG, 1, enabled)
+    tmp &= core#CONFIG_MASK
+    writeRegX (core#CONFIG, 1, tmp)
 
 PUB Gain(factor) | tmp
 ' Set sensor amplifier gain, as a multiplier
@@ -257,12 +262,6 @@ PUB WaitTime (cycles) | tmp
             return result := 256-tmp
 
     writeRegX (core#WTIME, 1, cycles)
-
-PUB WaitLongEnabled
-' Checks if long waits are enabled (multiplies wait timer value by a factor of 12)
-'   Returns TRUE or FALSE
-    readRegX(core#CONFIG, 1, @result)
-    result := ((result >> 1) & %1) * TRUE
 
 PUB readRegX(reg, bytes, dest) | cmd
 
