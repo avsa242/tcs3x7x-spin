@@ -243,33 +243,26 @@ PUB Persistence (cycles) | tmp
     tmp &= core#PERS_MASK
     writeRegX (core#PERS, 1, tmp)
 
-PUB SetWaitTime (cycles) | wtime
-' Wait time, in cycles (see EnableWait)
+PUB WaitTime (cycles) | tmp
+' Wait time, in cycles (see WaitTimer)
 '   Each cycle is approx 2.4ms
 '   unless long waits are enabled (WaitLongEnabled(TRUE))
 '   then the wait times are 12x longer
-'   Invalid values ignored
+'   Any other value polls the chip and returns the current setting
+    readRegX (core#WTIME, 1, @tmp)
     case cycles
         1..256:
-            wtime := 256-cycles
+            cycles := 256-cycles
         OTHER:
-            return FALSE
+            return result := 256-tmp
 
-    writeRegX (core#WTIME, 1, wtime)'reg, bytes, val)
+    writeRegX (core#WTIME, 1, cycles)
 
 PUB WaitLongEnabled
 ' Checks if long waits are enabled (multiplies wait timer value by a factor of 12)
 '   Returns TRUE or FALSE
     readRegX(core#CONFIG, 1, @result)
     result := ((result >> 1) & %1) * TRUE
-
-{PRI getReg_ENABLE: reg_enable
-
-    readRegX(core#ENABLE, 1{8}, @reg_enable)
-}
-PRI getReg_WTIME: reg_wtime
-
-    readRegX(core#WTIME, 1{8}, @reg_wtime)
 
 PUB readRegX(reg, bytes, dest) | cmd
 
