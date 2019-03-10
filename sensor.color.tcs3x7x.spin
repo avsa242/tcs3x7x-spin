@@ -66,7 +66,8 @@ PUB ClearInt | cmd
 PUB DataValid
 ' Check if the sensor data is valid (i.e., has completed an integration cycle)
 '   Returns TRUE if so, FALSE if not
-    return (getReg_STATUS & %1) * TRUE
+    readRegX ( core#STATUS, 1, @result)
+    result := (result & core#FLD_AVALID) * TRUE
 
 PUB EnableInts(enabled) | cmd, aen, wen, pon, tmp
 ' Allow interrupts to assert the INT pin
@@ -148,7 +149,8 @@ PUB GetRGBC(buff_addr)
 PUB Interrupt
 ' Check if the sensor has triggered an interrupt
 '   Returns TRUE or FALSE
-    return ((getReg_STATUS >> 4) & %1) * TRUE
+    readRegX (core#STATUS, 1, @result)
+    result := ((result >> core#FLD_AINT) & %1) * TRUE
 
 PUB IntsEnabled
 ' Are interrupts enabled?
@@ -296,15 +298,11 @@ PRI getReg_ENABLE: reg_enable
 
     readRegX(core#ENABLE, 1{8}, @reg_enable)
 
-PRI getReg_STATUS: reg_status
-
-    readRegX(core#STATUS, 1, @reg_status)
-
 PRI getReg_WTIME: reg_wtime
 
     readRegX(core#WTIME, 1{8}, @reg_wtime)
 
-PRI readRegX(reg, bytes, dest) | cmd
+PUB readRegX(reg, bytes, dest) | cmd
 
     case bytes
         0:
@@ -322,7 +320,7 @@ PRI readRegX(reg, bytes, dest) | cmd
     i2c.pread (dest, bytes, TRUE)
     i2c.stop
 
-PRI writeRegX(reg, bytes, val) | cmd[2]
+PUB writeRegX(reg, bytes, val) | cmd[2]
 
     case bytes
         0:

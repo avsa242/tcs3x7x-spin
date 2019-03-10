@@ -62,6 +62,8 @@ CON
 
     STATUS              = $13
     STATUS_MASK         = $11
+        FLD_AINT        = 4
+        FLD_AVALID      = 0
 
     CDATAL              = $14       'CLEAR DATA
     CDATAH              = $15
