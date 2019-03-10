@@ -85,24 +85,21 @@ PUB Interrupts(enabled) | tmp
     tmp := (tmp | enabled) & core#ENABLE_MASK
     writeRegX (core#ENABLE, 1, tmp)
 
-PUB EnableSensor(enabled) | cmd, tmp, aien, wen, pon
+PUB Sensor(enabled) | tmp
 ' Enable sensor data acquisition
-' If disabled, previously acquired data will remain latched in sensor
+'   Valid values: TRUE (-1 or 1), FALSE
+'   Any other value polls the chip and returns the current setting
+' NOTE: If disabling the sensor, the previously acquired data will remain latched in sensor
 ' (during same power cycle - doesn't survive resets).
-'   Valid values: FALSE, TRUE or 1
-
+    readRegX (core#ENABLE, 1, @tmp)
     case ||enabled
-        0, 1: enabled := ||enabled
-        OTHER: return FALSE
+        0, 1: enabled := ||enabled << core#FLD_AEN
+        OTHER:
+            result := ((tmp >> core#FLD_AEN) & %1) * TRUE
 
-    tmp := getReg_ENABLE        'We need to preserve the other bits in the register
-                                'before modifying the state of this bit, so read the reg first
-    aien := tmp >> 4 & %1
-    wen := tmp >> 3 & %1
-    pon := tmp & %1
-
-    tmp := ((aien << 4) | (wen << 3) | (enabled << 1) | pon) & $1F
-    writeRegX (core#ENABLE, 1, tmp)'reg, bytes, val)
+    tmp &= core#MASK_AEN
+    tmp := (tmp | enabled) & core#ENABLE_MASK
+    writeRegX (core#ENABLE, 1, tmp)
 
 PUB EnableWait(enabled) | cmd, tmp, aien, aen, pon
 ' Enable sensor wait timer
