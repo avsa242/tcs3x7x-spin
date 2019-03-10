@@ -101,22 +101,20 @@ PUB Sensor(enabled) | tmp
     tmp := (tmp | enabled) & core#ENABLE_MASK
     writeRegX (core#ENABLE, 1, tmp)
 
-PUB EnableWait(enabled) | cmd, tmp, aien, aen, pon
+PUB WaitTimer(enabled) | cmd, tmp, aien, aen, pon
 ' Enable sensor wait timer
-'   Used for power management - allows sensor to wait in between acquisition cycles
-'   If enabled, use SetWaitTime to specify number of cycles
 '   Valid values: FALSE, TRUE or 1
+'   Any other value polls the chip and returns the current setting
+'   NOTE: Used for power management - allows sensor to wait in between acquisition cycles
+'       If enabled, use SetWaitTime to specify number of cycles
+    readRegX (core#ENABLE, 1, @tmp)
     case ||enabled
-        0, 1: enabled := || enabled
-        OTHER:  return FALSE
+        0, 1: enabled := ||enabled << core#FLD_WEN
+        OTHER:
+            result := ((tmp >> core#FLD_wEN) & %1) * TRUE
 
-    tmp := getReg_ENABLE        'We need to preserve the other bits in the register
-                                'before modifying the state of this bit, so read the reg first
-    aien := tmp >> 4 & %1
-    aen := tmp >> 1 & %1
-    pon := tmp & %1
-
-    tmp := ((aien << 4) | (enabled << 3) | (aen << 1) | pon) & $1F
+    tmp &= core#MASK_WEN
+    tmp := (tmp | enabled) & core#ENABLE_MASK
     writeRegX (core#ENABLE, 1, tmp)
 
 PUB EnableWaitLong(enabled) | cmd, tmp, aien, aen, pon
