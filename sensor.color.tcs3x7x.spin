@@ -167,13 +167,6 @@ PUB Interrupt
     readRegX (core#STATUS, 1, @result)
     result := ((result >> core#FLD_AINT) & %1) * TRUE
 
-PUB IntsEnabled
-' Are interrupts enabled?
-'   Returns TRUE or FALSE
-' NOTE: Only pertains to the INT pin - asserted interrupts will still set the
-' interrupt flag in the STATUS register, as returned by the Interrupt method
-    return ((getReg_ENABLE >> 4) & %1) * TRUE
-
 PUB IntThreshold
 ' Get currently set interrupt thresholds
 '   Low threshold is returned in the least significant word
