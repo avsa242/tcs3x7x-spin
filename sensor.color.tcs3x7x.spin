@@ -177,11 +177,26 @@ PUB Interrupt
     readRegX (core#STATUS, 1, @result)
     result := ((result >> core#FLD_AINT) & %1) * TRUE
 
-PUB IntThreshold
-' Get currently set interrupt thresholds
-'   Low threshold is returned in the least significant word
-'   High threshold is returned in the most significant word
-    readRegX(core#AILTL, 4, @result)
+PUB IntThreshold(low, high) | tmp
+' Sets low and high thresholds for triggering an interrupt
+'   Valid values: 0..65535 for both low and high thresholds
+'   Any other value polls the chip and returns the current setting
+'      Low threshold is returned in the least significant word
+'      High threshold is returned in the most significant word
+'   NOTE: This works only with the CLEAR data channel
+    readRegX(core#AILTL, 4, @tmp)
+    case low
+        0..65535:
+        OTHER:
+            return tmp
+
+    case high
+        0..65535:
+            tmp := (high << 16) | low
+        OTHER:
+            return tmp
+
+    writeRegX (core#AILTL, 4, tmp)
 
 PUB PartID
 ' Returns byte corresponding to part number of sensor
@@ -205,16 +220,6 @@ PUB Power(enabled) | tmp
 
     if enabled
         time.USleep (2400)  'Wait 2.4ms per datasheet p.15
-
-PUB SetIntThreshold(low_thresh, high_thresh)
-' Set interrupt triggering threshold
-'   Sets low and high thresholds for triggering an interrupt
-'   Invalid values get clamped to the minimum and maximum allowed values (0..65535)
-'   NOTE: This works only with the CLEAR data channel
-    low_thresh := 0 #> low_thresh <# $FFFF  ' Clamp values to 0..65535
-    high_thresh := 0 #> high_thresh <# $FFFF  ' Clamp values to 0..65535
-
-    writeRegX (core#AILTL, 4, (high_thresh << 16) | low_thresh)
 
 PUB SetPersistence (cycles) | apers
 ' Interrupt persistence, in cycles
