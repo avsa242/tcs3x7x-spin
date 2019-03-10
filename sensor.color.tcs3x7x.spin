@@ -179,36 +179,22 @@ PUB PartID
 '  $4D: TCS34723 and TCS34727
     readRegX(core#DEVID, 1, @result)
 
-PUB Power(enabled) | tmp, aien, wen, aen
+PUB Power(enabled) | tmp
 ' Enable power to the sensor
-'   Valid values: FALSE, TRUE or 1
+'   Valid values: TRUE (-1 or 1), FALSE
+'   Any other value polls the chip and returns the current setting
+    readRegX (core#ENABLE, 1, @tmp)
     case ||enabled
-        0, 1: enabled := ||enabled
-        OTHER: return FALSE
+        0, 1: enabled := ||enabled << core#FLD_PON
+        OTHER:
+            result := ((tmp >> core#FLD_PON) & %1) * TRUE
 
-    tmp := getReg_ENABLE    'We need to preserve the other bits in the register
-                            'before modifying the state of this bit, so read the reg first
-    aien := tmp >> 4 & %1
-    wen := tmp >> 3 & %1
-    aen := tmp >> 1 & %1
-
-    tmp := ((aien << 4) | (wen << 3) | (aen << 1) | enabled) & $1F
-
+    tmp &= core#MASK_PON
+    tmp := (tmp | enabled) & core#ENABLE_MASK
     writeRegX (core#ENABLE, 1, tmp)
 
     if enabled
         time.USleep (2400)  'Wait 2.4ms per datasheet p.15
-
-PUB Powered | tmp
-' Is the sensor powered up?
-'   Returns TRUE or FALSE
-    tmp := (getReg_ENABLE & %1) * TRUE
-    return tmp
-
-PUB SensorEnabled
-' Is the sensor's data acquisition enabled?
-'   Returns TRUE or FALSE
-    return ((getReg_ENABLE >> 1) & %1) * TRUE
 
 PUB SetGain (factor) | again
 ' Set sensor amplifier gain
@@ -266,11 +252,6 @@ PUB SetWaitTime (cycles) | wtime
             return FALSE
 
     writeRegX (core#WTIME, 1, wtime)'reg, bytes, val)
-
-PUB WaitEnabled
-' Checks if the sensor's wait timer enabled?
-'   Returns TRUE or FALSE
-    return ((getReg_ENABLE >> 3) & %1) * TRUE
 
 PUB WaitLongEnabled
 ' Checks if long waits are enabled (multiplies wait timer value by a factor of 12)
