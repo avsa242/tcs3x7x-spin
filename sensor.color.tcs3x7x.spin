@@ -32,7 +32,7 @@ CON
 OBJ
 
     core  : "core.con.tcs3x7x"
-    i2c   : "jm_i2c_fast"
+    i2c   : "com.i2c"
     time  : "time"
 
 PRI Null
@@ -68,71 +68,6 @@ PUB DataValid
 '   Returns TRUE if so, FALSE if not
     readRegX ( core#STATUS, 1, @result)
     result := (result & core#FLD_AVALID) * TRUE
-
-PUB Interrupts(enabled) | tmp
-' Allow interrupts to assert the INT pin
-'   Valid values: TRUE (-1 or 1), FALSE
-'   Any other value polls the chip and returns the current setting
-'   Returns: TRUE if an interrupt occurs, FALSE otherwise.
-'   NOTE: This doesn't affect the interrupt flag in the STATUS register.
-    readRegX (core#ENABLE, 1, @tmp)
-    case ||enabled
-        0, 1: enabled := ||enabled << core#FLD_AIEN
-        OTHER:
-            result := ((tmp >> core#FLD_AIEN) & %1) * TRUE
-
-    tmp &= core#MASK_AIEN
-    tmp := (tmp | enabled) & core#ENABLE_MASK
-    writeRegX (core#ENABLE, 1, tmp)
-
-PUB Sensor(enabled) | tmp
-' Enable sensor data acquisition
-'   Valid values: TRUE (-1 or 1), FALSE
-'   Any other value polls the chip and returns the current setting
-' NOTE: If disabling the sensor, the previously acquired data will remain latched in sensor
-' (during same power cycle - doesn't survive resets).
-    readRegX (core#ENABLE, 1, @tmp)
-    case ||enabled
-        0, 1: enabled := ||enabled << core#FLD_AEN
-        OTHER:
-            result := ((tmp >> core#FLD_AEN) & %1) * TRUE
-
-    tmp &= core#MASK_AEN
-    tmp := (tmp | enabled) & core#ENABLE_MASK
-    writeRegX (core#ENABLE, 1, tmp)
-
-PUB WaitTimer(enabled) | cmd, tmp, aien, aen, pon
-' Enable sensor wait timer
-'   Valid values: FALSE, TRUE or 1
-'   Any other value polls the chip and returns the current setting
-'   NOTE: Used for power management - allows sensor to wait in between acquisition cycles
-'       If enabled, use SetWaitTime to specify number of cycles
-    readRegX (core#ENABLE, 1, @tmp)
-    case ||enabled
-        0, 1: enabled := ||enabled << core#FLD_WEN
-        OTHER:
-            result := ((tmp >> core#FLD_wEN) & %1) * TRUE
-
-    tmp &= core#MASK_WEN
-    tmp := (tmp | enabled) & core#ENABLE_MASK
-    writeRegX (core#ENABLE, 1, tmp)
-
-PUB WaitLongTimer(enabled) | tmp
-' Enable longer wait time cycles
-'   If enabled, wait cycles set using the SetWaitTime method are increased by a factor of 12x
-'   Valid values: FALSE, TRUE or 1
-'   Any other value polls the chip and returns the current setting
-' XXX Investigate merging this functionality with WaitTimer to simplify use
-    readRegX(core#CONFIG, 1, @tmp)
-    case ||enabled
-        0, 1:
-            enabled := (||enabled) << core#FLD_WLONG
-        OTHER:
-            result := (tmp >> core#FLD_WLONG)
-            return result := (result & %1) * TRUE
-
-    tmp &= core#CONFIG_MASK
-    writeRegX (core#CONFIG, 1, tmp)
 
 PUB Gain(factor) | tmp
 ' Set sensor amplifier gain, as a multiplier
@@ -182,6 +117,22 @@ PUB Interrupt
     readRegX (core#STATUS, 1, @result)
     result := ((result >> core#FLD_AINT) & %1) * TRUE
 
+PUB Interrupts(enabled) | tmp
+' Allow interrupts to assert the INT pin
+'   Valid values: TRUE (-1 or 1), FALSE
+'   Any other value polls the chip and returns the current setting
+'   Returns: TRUE if an interrupt occurs, FALSE otherwise.
+'   NOTE: This doesn't affect the interrupt flag in the STATUS register.
+    readRegX (core#ENABLE, 1, @tmp)
+    case ||enabled
+        0, 1: enabled := ||enabled << core#FLD_AIEN
+        OTHER:
+            result := ((tmp >> core#FLD_AIEN) & %1) * TRUE
+
+    tmp &= core#MASK_AIEN
+    tmp := (tmp | enabled) & core#ENABLE_MASK
+    writeRegX (core#ENABLE, 1, tmp)
+
 PUB IntThreshold(low, high) | tmp
 ' Sets low and high thresholds for triggering an interrupt
 '   Valid values: 0..65535 for both low and high thresholds
@@ -209,23 +160,6 @@ PUB PartID
 '  $4D: TCS34723 and TCS34727
     readRegX(core#DEVID, 1, @result)
 
-PUB Power(enabled) | tmp
-' Enable power to the sensor
-'   Valid values: TRUE (-1 or 1), FALSE
-'   Any other value polls the chip and returns the current setting
-    readRegX (core#ENABLE, 1, @tmp)
-    case ||enabled
-        0, 1: enabled := ||enabled << core#FLD_PON
-        OTHER:
-            result := ((tmp >> core#FLD_PON) & %1) * TRUE
-
-    tmp &= core#MASK_PON
-    tmp := (tmp | enabled) & core#ENABLE_MASK
-    writeRegX (core#ENABLE, 1, tmp)
-
-    if enabled
-        time.USleep (2400)  'Wait 2.4ms per datasheet p.15
-
 PUB Persistence (cycles) | tmp
 ' Set Interrupt persistence, in cycles
 '   Defines how many consecutive measurements must be outside the interrupt threshold (Set with IntThreshold)
@@ -248,6 +182,39 @@ PUB Persistence (cycles) | tmp
     tmp &= core#PERS_MASK
     writeRegX (core#PERS, 1, tmp)
 
+PUB Power(enabled) | tmp
+' Enable power to the sensor
+'   Valid values: TRUE (-1 or 1), FALSE
+'   Any other value polls the chip and returns the current setting
+    readRegX (core#ENABLE, 1, @tmp)
+    case ||enabled
+        0, 1: enabled := ||enabled << core#FLD_PON
+        OTHER:
+            result := ((tmp >> core#FLD_PON) & %1) * TRUE
+
+    tmp &= core#MASK_PON
+    tmp := (tmp | enabled) & core#ENABLE_MASK
+    writeRegX (core#ENABLE, 1, tmp)
+
+    if enabled
+        time.USleep (2400)  'Wait 2.4ms per datasheet p.15
+
+PUB Sensor(enabled) | tmp
+' Enable sensor data acquisition
+'   Valid values: TRUE (-1 or 1), FALSE
+'   Any other value polls the chip and returns the current setting
+' NOTE: If disabling the sensor, the previously acquired data will remain latched in sensor
+' (during same power cycle - doesn't survive resets).
+    readRegX (core#ENABLE, 1, @tmp)
+    case ||enabled
+        0, 1: enabled := ||enabled << core#FLD_AEN
+        OTHER:
+            result := ((tmp >> core#FLD_AEN) & %1) * TRUE
+
+    tmp &= core#MASK_AEN
+    tmp := (tmp | enabled) & core#ENABLE_MASK
+    writeRegX (core#ENABLE, 1, tmp)
+
 PUB WaitTime (cycles) | tmp
 ' Wait time, in cycles (see WaitTimer)
 '   Each cycle is approx 2.4ms
@@ -263,7 +230,40 @@ PUB WaitTime (cycles) | tmp
 
     writeRegX (core#WTIME, 1, cycles)
 
-PUB readRegX(reg, bytes, dest) | cmd
+PUB WaitTimer(enabled) | tmp
+' Enable sensor wait timer
+'   Valid values: FALSE, TRUE or 1
+'   Any other value polls the chip and returns the current setting
+'   NOTE: Used for power management - allows sensor to wait in between acquisition cycles
+'       If enabled, use SetWaitTime to specify number of cycles
+    readRegX (core#ENABLE, 1, @tmp)
+    case ||enabled
+        0, 1: enabled := ||enabled << core#FLD_WEN
+        OTHER:
+            result := ((tmp >> core#FLD_WEN) & %1) * TRUE
+
+    tmp &= core#MASK_WEN
+    tmp := (tmp | enabled) & core#ENABLE_MASK
+    writeRegX (core#ENABLE, 1, tmp)
+
+PUB WaitLongTimer(enabled) | tmp
+' Enable longer wait time cycles
+'   If enabled, wait cycles set using the SetWaitTime method are increased by a factor of 12x
+'   Valid values: FALSE, TRUE or 1
+'   Any other value polls the chip and returns the current setting
+' XXX Investigate merging this functionality with WaitTimer to simplify use
+    readRegX(core#CONFIG, 1, @tmp)
+    case ||enabled
+        0, 1:
+            enabled := (||enabled) << core#FLD_WLONG
+        OTHER:
+            result := (tmp >> core#FLD_WLONG)
+            return result := (result & %1) * TRUE
+
+    tmp &= core#CONFIG_MASK
+    writeRegX (core#CONFIG, 1, tmp)
+
+PRI readRegX(reg, bytes, dest) | cmd
 
     case bytes
         0:
@@ -274,14 +274,14 @@ PUB readRegX(reg, bytes, dest) | cmd
             cmd.word[0] := CMD_BLOCK | (reg << 8)
 
     i2c.start
-    i2c.pwrite (@cmd, 2)
+    i2c.wr_block (@cmd, 2)
 
     i2c.start
     i2c.write (SLAVE_RD)
-    i2c.pread (dest, bytes, TRUE)
+    i2c.rd_block (dest, bytes, TRUE)
     i2c.stop
 
-PUB writeRegX(reg, bytes, val) | cmd[2]
+PRI writeRegX(reg, bytes, val) | cmd[2]
 
     case bytes
         0:
@@ -302,7 +302,7 @@ PUB writeRegX(reg, bytes, val) | cmd[2]
             return
 
     i2c.start
-    i2c.pwrite(@cmd, bytes + 2)
+    i2c.wr_block (@cmd, bytes + 2)
     i2c.stop
 
 DAT

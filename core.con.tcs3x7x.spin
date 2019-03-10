@@ -22,7 +22,6 @@ CON
 ' |     |_____|     |_______________________|
 ' CMD   TYPE        ADDR (REG)/SF
 
-' CMD - bit 7
     CMD                 = $80
         FLD_TYPE        = 5
         TYPE_BYTE       = %00 << FLD_TYPE  'Don't auto-increment address pointer - use for reading single register
@@ -64,6 +63,8 @@ CON
         BITS_AGAIN      = %11
 
     DEVID               = $12
+    DEVID_3472_1_5      = $44
+    DEVID_3472_3_7      = $4D
 
     STATUS              = $13
     STATUS_MASK         = $11
