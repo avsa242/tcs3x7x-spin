@@ -146,6 +146,28 @@ PUB GetRGBC(buff_addr)
 ' IMPORTANT: This buffer needs to be 8 bytes in length
     readRegX (core#CDATAL, 8, buff_addr)
 
+PUB IntegrationTime (cycles) | tmp ' XXX Rewrite to take 'ms' as param
+' Set sensor integration time, in cycles
+'   Each cycle is approx 2.4ms (exception: 256 cycles is 700ms)
+'
+'   Cycles      Time    Effective range:
+'   1           2.4ms   10 bits     (max count: 1024)
+'   10          24ms    13+ bits    (max count: 10240)
+'   42          101ms   15+ bits    (max count: 43008)
+'   64          154ms   16 bits     (max count: 65535)
+'   256         700ms   16 bits     (max count: 65535)
+'   Max effective resolution achieved with 64..256
+'   Valid values: 1 to 256
+'   Any other value polls the chip and returns the current setting
+    readRegX (core#ATIME, 1, @tmp)
+    case cycles
+        1..256:
+            cycles := 256-cycles
+        OTHER:
+            return result := 256-tmp
+
+    writeRegX (core#ATIME, 1, cycles)
+
 PUB Interrupt
 ' Check if the sensor has triggered an interrupt
 '   Returns TRUE or FALSE
@@ -216,26 +238,6 @@ PUB SetGain (factor) | again
 
     writeRegX (core#CONTROL, 1, again)
 
-PUB SetIntegrationTime (cycles) | atime
-' Set sensor integration time, in cycles
-'   Each cycle is approx 2.4ms (exception: 256 cycles is 700ms)
-'
-'   Cycles      Time    Effective range:
-'   1           2.4ms   10 bits     (max count: 1024)
-'   10          24ms    13+ bits    (max count: 10240)
-'   42          101ms   15+ bits    (max count: 43008)
-'   64          154ms   16 bits     (max count: 65535)
-'   256         700ms   16 bits     (max count: 65535)
-'   Max effective resolution achieved with 64..256
-'   Valid values: 1 to 256
-'   Invalid values ignored
-    case cycles
-        1..256:
-            atime := 256-cycles
-        OTHER:
-            return FALSE
-
-    writeRegX (core#ATIME, 1, atime)
 
 PUB SetIntThreshold(low_thresh, high_thresh)
 ' Set interrupt triggering threshold
@@ -289,10 +291,6 @@ PUB WaitLongEnabled
 '   Returns TRUE or FALSE
     readRegX(core#CONFIG, 1, @result)
     result := ((result >> 1) & %1) * TRUE
-
-PRI getReg_ATIME: reg_atime
-
-    readRegX(core#ATIME, 1{8}, @reg_atime)
 
 PRI getReg_ENABLE: reg_enable
 
