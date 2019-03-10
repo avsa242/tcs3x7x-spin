@@ -15,7 +15,7 @@ CON
     _xinfreq        = cfg#_xinfreq
 
 ' I/O Pin connected to the (optional) on-board white LED and INT pin
-    LED_PIN         = 25
+    WHITE_LED_PIN   = 25
     INT_PIN         = 24
 ' Demo mode constants
     DISP_HELP       = 1
@@ -40,7 +40,6 @@ OBJ
     ser   : "com.serial.terminal"
     time  : "time"
     rgb   : "sensor.color.tcs3x7x"
-    debug : "debug"
     io    : "io"
 
 VAR
@@ -56,9 +55,9 @@ PUB Main
 
     Setup
     ser.Clear
-    rgb.SetIntThreshold ($0F00, $A000)
-    rgb.SetPersistence (5)
-    rgb.SetIntegrationTime (32)
+    rgb.IntThreshold ($0F00, $A000)
+    rgb.Persistence (5)
+    rgb.IntegrationTime (32)
 
     repeat
         case _demo_state
@@ -134,18 +133,18 @@ PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata, cmax, i, int, thr, rro
     ser.Str (string("Gain: "))
 
     ser.Position (6, 0)
-    ser.Dec (rgb.Gain)
+    ser.Dec (rgb.Gain(-2))
     ser.Str (string("x "))
 
     ser.Position (11, 0)
     ser.Str (string("Ints: "))
-    int := ||rgb.IntsEnabled
+    int := ||rgb.Interrupts(-2)
     ser.Position (17, 0)
     ser.Str (lookupz(int: string("Off"), string("On ")))
 
     ser.Position (21, 0)
     ser.Str (string("Thr: "))
-    thr := rgb.IntThreshold
+    thr := rgb.IntThreshold(-2, -2)
     ser.Hex (thr & $FFFF, 4)
     ser.Char ("-")
     ser.Hex ((thr >> 16) & $FFFF, 4)
@@ -161,10 +160,10 @@ PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata, cmax, i, int, thr, rro
 
     repeat until _demo_state <> PRINT_RGBC
         if _led_enabled
-            io.High (LED_PIN)
+            io.High (WHITE_LED_PIN)
             repeat until rgb.DataValid
             rgb.GetRGBC (@rgbc_data)
-            io.Low (LED_PIN)
+            io.Low (WHITE_LED_PIN)
 
         ser.Position (55, 0)
         ser.Dec (ina[INT_PIN])
@@ -183,11 +182,11 @@ PUB ChangeThresh(lim, delta) | tmp
 ' Change interrupt thresholds
     case lim
         0:  'Change low threshold
-            tmp := rgb.IntThreshold
-            rgb.SetIntThreshold (0 #> ((tmp & $FFFF) + delta) <# $FFFF, (tmp >> 16) & $FFFF)
+            tmp := rgb.IntThreshold(-2, -2)
+            rgb.IntThreshold (0 #> ((tmp & $FFFF) + delta) <# $FFFF, (tmp >> 16) & $FFFF)
         1:  'Change high threshold
-            tmp := rgb.IntThreshold
-            rgb.SetIntThreshold (tmp & $FFFF, 0 #> ((tmp >> 16) & $FFFF) + delta <# $FFFF)
+            tmp := rgb.IntThreshold(-2, -2)
+            rgb.IntThreshold (tmp & $FFFF, 0 #> ((tmp >> 16) & $FFFF) + delta <# $FFFF)
         OTHER:
 
     _demo_state := _prev_state
@@ -199,11 +198,11 @@ PUB ClearInts
 
 PUB CycleGain
 
-    case rgb.Gain
-        1: rgb.SetGain (4)
-        4: rgb.SetGain (16)
-        16: rgb.SetGain (60)
-        60: rgb.SetGain (1)
+    case rgb.Gain(-2)
+        1: rgb.Gain (4)
+        4: rgb.Gain (16)
+        16: rgb.Gain (60)
+        60: rgb.Gain (1)
 
     _demo_state := _prev_state
 
@@ -215,7 +214,7 @@ PUB ToggleLED
     if _led_enabled
         _led_enabled := FALSE
         ser.Str (string("off", ser#NL))
-        io.Low (LED_PIN)  'Turn off explicitly, just to be sure
+        io.Low (WHITE_LED_PIN)  'Turn off explicitly, just to be sure
     else
         ser.Str (string("on", ser#NL))
         _led_enabled := TRUE
@@ -223,18 +222,18 @@ PUB ToggleLED
 
 PUB ToggleInts | tmp
 
-    tmp := rgb.IntsEnabled
+    tmp := rgb.Interrupts(-2)
     if tmp
-        rgb.EnableInts (FALSE)
+        rgb.Interrupts (FALSE)
     else
-        rgb.EnableInts (TRUE)
+        rgb.Interrupts (TRUE)
     _demo_state := _prev_state
 
 PUB TogglePower | tmp
 
     ser.NewLine
     ser.Str (string("Turning Power "))
-    tmp := rgb.Powered
+    tmp := rgb.Power (-2)
     if tmp
         ser.Str (string("off", ser#NL))
         rgb.Power (FALSE)
@@ -247,39 +246,39 @@ PUB ToggleRGBC | tmp
 
     ser.NewLine
     ser.Str (string("Turning RGBC "))
-    tmp := rgb.SensorEnabled
+    tmp := rgb.Sensor(-2)
     if tmp
         ser.Str (string("off", ser#NL))
-        rgb.EnableSensor (FALSE)
+        rgb.Sensor (FALSE)
     else
         ser.Str (string("on", ser#NL))
-        rgb.EnableSensor (TRUE)
+        rgb.Sensor (TRUE)
     waitkey
 
 PUB ToggleWait | tmp
 
     ser.NewLine
     ser.Str (string("Turning Wait timer "))
-    tmp := rgb.WaitEnabled
+    tmp := rgb.WaitTimer (-2)
     if tmp
         ser.Str (string("off", ser#NL))
-        rgb.EnableWait (FALSE)
+        rgb.WaitTimer (FALSE)
     else
         ser.Str (string("on", ser#NL))
-        rgb.EnableWait (TRUE)
+        rgb.WaitTimer (TRUE)
     waitkey
 
 PUB ToggleWaitLong | tmp
 
     ser.NewLine
     ser.Str (string("Turning Long Waits "))
-    tmp := rgb.WaitLongEnabled
+    tmp := rgb.WaitLongTimer (-2)
     if tmp
         ser.Str (string("off", ser#NL))
-        rgb.EnableWaitLong (FALSE)
+        rgb.WaitLongTimer (FALSE)
     else
         ser.Str (string("on", ser#NL))
-        rgb.EnableWaitLong (TRUE)
+        rgb.WaitLongTimer (TRUE)
     waitkey
 
 PUB keyDaemon | key_cmd
@@ -382,8 +381,8 @@ PUB Help
 
 PUB Setup
 
-    io.Output (LED_PIN)
-    io.Low (LED_PIN)
+    io.Output (WHITE_LED_PIN)
+    io.Low (WHITE_LED_PIN)
 
     repeat until _ser_cog := ser.Start (115_200)
     ser.Clear
@@ -392,13 +391,19 @@ PUB Setup
     if _rgb_cog := rgb.Start
         ser.Str (string("tcs3x7x object started", ser#NL))
     else
-        ser.Str (string("tcs3x7x object failed to start", ser#NL))
+        ser.Str (string("tcs3x7x object failed to start - halting", ser#NL))
         time.MSleep (500)
         ser.Stop
-        debug.LEDSlow (cfg#LED1)
+        flash(cfg#LED1)
     _max_cols := 1
     _isr_cog := cognew(ISR, @_isr_stack)
 
+PUB flash(led_pin)
+
+    dira[led_pin] := 1
+    repeat
+        !outa[led_pin]
+        time.MSleep (500)
 DAT
 {
     --------------------------------------------------------------------------------------------------------
