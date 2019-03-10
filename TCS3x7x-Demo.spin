@@ -15,8 +15,8 @@ CON
     _xinfreq        = cfg#_xinfreq
 
 ' I/O Pin connected to the (optional) on-board white LED and INT pin
-    LED_PIN             = 25
-    INT_PIN             = 24
+    LED_PIN         = 25
+    INT_PIN         = 24
 ' Demo mode constants
     DISP_HELP       = 1
     TOGGLE_POWER    = 2
@@ -36,7 +36,7 @@ CON
 
 OBJ
 
-    cfg   : "core.con.client.flip"
+    cfg   : "core.con.boardcfg.flip"
     ser   : "com.serial.terminal"
     time  : "time"
     rgb   : "sensor.color.tcs3x7x"
@@ -58,7 +58,7 @@ PUB Main
     ser.Clear
     rgb.SetIntThreshold ($0F00, $A000)
     rgb.SetPersistence (5)
-    rgb.SetIntegrationTime (64)
+    rgb.SetIntegrationTime (32)
 
     repeat
         case _demo_state
@@ -81,7 +81,7 @@ PUB Main
                 _demo_state := DISP_HELP
 
 PUB ISR
-' Soft Interrupt Service Routine XXX - not functional
+' Soft Interrupt Service Routine
     io.Output (cfg#LED2)
     repeat
         waitpne(|<INT_PIN, |<INT_PIN, 0)
@@ -97,11 +97,11 @@ PUB Graph(graphx, graphy, in, inmin, inmax, outrange, grads, exc_lo, exc_hi) | o
     scale := 10
     inrange := inmax-inmin
     output := ((((in << scale)-(inmin << scale)) / inrange) * outrange) >> scale
-    exc_lo := ((((exc_lo << scale)-(inmin << scale)) / inrange) * outrange) >> scale
-    exc_hi := ((((exc_hi << scale)-(inmin << scale)) / inrange) * outrange) >> scale
 
 ' Graduations
     if grads
+        exc_lo := ((((exc_lo << scale)-(inmin << scale)) / inrange) * outrange) >> scale
+        exc_hi := ((((exc_hi << scale)-(inmin << scale)) / inrange) * outrange) >> scale
         repeat bar from 0 to outrange
             case bar
                 exc_lo:
@@ -122,8 +122,9 @@ PUB Graph(graphx, graphy, in, inmin, inmax, outrange, grads, exc_lo, exc_hi) | o
         else
             ser.Char (" ")
 
-PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata, cmax, i, int, thr, rrow, grow, brow, crow
+PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata, cmax, i, int, thr, rrow, grow, brow, crow, range
 
+    range := 256
     crow := 4
     rrow := crow + 1
     grow := crow + 2
@@ -131,6 +132,10 @@ PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata, cmax, i, int, thr, rro
     ser.Clear
     ser.Position (0, 0)
     ser.Str (string("Gain: "))
+
+    ser.Position (6, 0)
+    ser.Dec (rgb.Gain)
+    ser.Str (string("x "))
 
     ser.Position (11, 0)
     ser.Str (string("Ints: "))
@@ -157,13 +162,9 @@ PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata, cmax, i, int, thr, rro
     repeat until _demo_state <> PRINT_RGBC
         if _led_enabled
             io.High (LED_PIN)
-        rgb.GetRGBC (@rgbc_data)
-
-        ser.Position (6, 0)
-        ser.Dec (rgb.Gain)
-        ser.Str (string("x "))
-
-        io.Low (LED_PIN)
+            repeat until rgb.DataValid
+            rgb.GetRGBC (@rgbc_data)
+            io.Low (LED_PIN)
 
         ser.Position (55, 0)
         ser.Dec (ina[INT_PIN])
@@ -173,10 +174,10 @@ PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata, cmax, i, int, thr, rro
         gdata := ((rgbc_data.byte[5] << 8) | rgbc_data.byte[4]) & $FFFF
         bdata := ((rgbc_data.byte[7] << 8) | rgbc_data.byte[6]) & $FFFF
 
-        Graph (6, crow, cdata, 0, 65535, 70, TRUE, thr & $FFFF, (thr >> 16) & $FFFF)
-        Graph (6, rrow, rdata, 0, 65535, 70, FALSE, 0, 0)
-        Graph (6, grow, gdata, 0, 65535, 70, FALSE, 0, 0)
-        Graph (6, brow, bdata, 0, 65535, 70, FALSE, 0, 0)
+        Graph (6, crow, cdata, 0, range, 70, TRUE, thr & $FFFF, (thr >> 16) & $FFFF)
+        Graph (6, rrow, rdata, 0, range, 70, FALSE, 0, 0)
+        Graph (6, grow, gdata, 0, range, 70, FALSE, 0, 0)
+        Graph (6, brow, bdata, 0, range, 70, FALSE, 0, 0)
 
 PUB ChangeThresh(lim, delta) | tmp
 ' Change interrupt thresholds

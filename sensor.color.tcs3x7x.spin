@@ -2,9 +2,10 @@
     --------------------------------------------
     Filename: sensor.color.tcs3x7x.spin
     Author: Jesse Burt
+    Description: Driver for the TAOS TCS3x7x RGB color sensor
     Copyright (c) 2018
     Started: Jun 24, 2018
-    Updated: Nov 27, 2018
+    Updated: Mar 10, 2019
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -52,6 +53,10 @@ PUB Startx(SCL_PIN, SDA_PIN, I2C_HZ): okay
 
     return FALSE                                                'If we got here, something went wrong
 
+PUB Stop
+
+    i2c.terminate
+
 PUB ClearInt | cmd
 ' Clears an asserted interrupt
 ' NOTE: This affects both the state of the sensor's INT pin,
@@ -79,7 +84,7 @@ PUB EnableInts(enabled) | cmd, aen, wen, pon, tmp
     pon := tmp & %1
 
     tmp := ((enabled << 4) | (wen << 3) | (aen << 1) | pon) & $1F
-    writeRegX (core#REG_ENABLE, 1, tmp)
+    writeRegX (core#ENABLE, 1, tmp)
 
 PUB EnableSensor(enabled) | cmd, tmp, aien, wen, pon
 ' Enable sensor data acquisition
@@ -98,7 +103,7 @@ PUB EnableSensor(enabled) | cmd, tmp, aien, wen, pon
     pon := tmp & %1
 
     tmp := ((aien << 4) | (wen << 3) | (enabled << 1) | pon) & $1F
-    writeRegX (core#REG_ENABLE, 1, tmp)'reg, bytes, val)
+    writeRegX (core#ENABLE, 1, tmp)'reg, bytes, val)
 
 PUB EnableWait(enabled) | cmd, tmp, aien, aen, pon
 ' Enable sensor wait timer
@@ -116,7 +121,7 @@ PUB EnableWait(enabled) | cmd, tmp, aien, aen, pon
     pon := tmp & %1
 
     tmp := ((aien << 4) | (enabled << 3) | (aen << 1) | pon) & $1F
-    writeRegX (core#REG_ENABLE, 1, tmp)
+    writeRegX (core#ENABLE, 1, tmp)
 
 PUB EnableWaitLong(enabled) | cmd, tmp, aien, aen, pon
 ' Enable longer wait time cycles
@@ -128,17 +133,17 @@ PUB EnableWaitLong(enabled) | cmd, tmp, aien, aen, pon
         0, 1: enabled := (||enabled) << 1
         OTHER: return FALSE
 
-    writeRegX (core#REG_CONFIG, 1, enabled)
+    writeRegX (core#CONFIG, 1, enabled)
 
 PUB Gain
 ' Returns current gain setting
-    readRegX(core#REG_CONTROL, 1, @result)
+    readRegX(core#CONTROL, 1, @result)
     return lookupz((result & %11): 1, 4, 16, 60)
 
 PUB GetRGBC(buff_addr)
 ' Get sensor data into buff_addr
 ' IMPORTANT: This buffer needs to be 8 bytes in length
-    readRegX (core#REG_CDATAL, 8, buff_addr)
+    readRegX (core#CDATAL, 8, buff_addr)
 
 PUB Interrupt
 ' Check if the sensor has triggered an interrupt
@@ -156,13 +161,13 @@ PUB IntThreshold
 ' Get currently set interrupt thresholds
 '   Low threshold is returned in the least significant word
 '   High threshold is returned in the most significant word
-    readRegX(core#REG_AILTL, 4, @result)
+    readRegX(core#AILTL, 4, @result)
 
 PUB PartID
 ' Returns byte corresponding to part number of sensor
 '  $44: TCS34721 and TCS34725
 '  $4D: TCS34723 and TCS34727
-    readRegX(core#REG_DEVID, 1, @result)
+    readRegX(core#DEVID, 1, @result)
 
 PUB Power(enabled) | tmp, aien, wen, aen
 ' Enable power to the sensor
@@ -179,7 +184,7 @@ PUB Power(enabled) | tmp, aien, wen, aen
 
     tmp := ((aien << 4) | (wen << 3) | (aen << 1) | enabled) & $1F
 
-    writeRegX (core#REG_ENABLE, 1, tmp)
+    writeRegX (core#ENABLE, 1, tmp)
 
     if enabled
         time.USleep (2400)  'Wait 2.4ms per datasheet p.15
@@ -207,7 +212,7 @@ PUB SetGain (factor) | again
         OTHER:
             return FALSE
 
-    writeRegX (core#REG_CONTROL, 1, again)
+    writeRegX (core#CONTROL, 1, again)
 
 PUB SetIntegrationTime (cycles) | atime
 ' Set sensor integration time, in cycles
@@ -228,7 +233,7 @@ PUB SetIntegrationTime (cycles) | atime
         OTHER:
             return FALSE
 
-    writeRegX (core#REG_ATIME, 1, atime)
+    writeRegX (core#ATIME, 1, atime)
 
 PUB SetIntThreshold(low_thresh, high_thresh)
 ' Set interrupt triggering threshold
@@ -238,7 +243,7 @@ PUB SetIntThreshold(low_thresh, high_thresh)
     low_thresh := 0 #> low_thresh <# $FFFF  ' Clamp values to 0..65535
     high_thresh := 0 #> high_thresh <# $FFFF  ' Clamp values to 0..65535
 
-    writeRegX (core#REG_AILTL, 4, (high_thresh << 16) | low_thresh)
+    writeRegX (core#AILTL, 4, (high_thresh << 16) | low_thresh)
 
 PUB SetPersistence (cycles) | apers
 ' Interrupt persistence, in cycles
@@ -256,7 +261,7 @@ PUB SetPersistence (cycles) | apers
         5..60:  apers := cycles / 5 + 3
         OTHER:  return FALSE
 
-    writeRegX (core#REG_APERS, 1, apers)'reg, bytes, val)
+    writeRegX (core#APERS, 1, apers)'reg, bytes, val)
 
 PUB SetWaitTime (cycles) | wtime
 ' Wait time, in cycles (see EnableWait)
@@ -270,7 +275,7 @@ PUB SetWaitTime (cycles) | wtime
         OTHER:
             return FALSE
 
-    writeRegX (core#REG_WTIME, 1, wtime)'reg, bytes, val)
+    writeRegX (core#WTIME, 1, wtime)'reg, bytes, val)
 
 PUB WaitEnabled
 ' Checks if the sensor's wait timer enabled?
@@ -280,24 +285,24 @@ PUB WaitEnabled
 PUB WaitLongEnabled
 ' Checks if long waits are enabled (multiplies wait timer value by a factor of 12)
 '   Returns TRUE or FALSE
-    readRegX(core#REG_CONFIG, 1, @result)
+    readRegX(core#CONFIG, 1, @result)
     result := ((result >> 1) & %1) * TRUE
 
 PRI getReg_ATIME: reg_atime
 
-    readRegX(core#REG_ATIME, 1{8}, @reg_atime)
+    readRegX(core#ATIME, 1{8}, @reg_atime)
 
 PRI getReg_ENABLE: reg_enable
 
-    readRegX(core#REG_ENABLE, 1{8}, @reg_enable)
+    readRegX(core#ENABLE, 1{8}, @reg_enable)
 
 PRI getReg_STATUS: reg_status
 
-    readRegX(core#REG_STATUS, 1, @reg_status)
+    readRegX(core#STATUS, 1, @reg_status)
 
 PRI getReg_WTIME: reg_wtime
 
-    readRegX(core#REG_WTIME, 1{8}, @reg_wtime)
+    readRegX(core#WTIME, 1{8}, @reg_wtime)
 
 PRI readRegX(reg, bytes, dest) | cmd
 

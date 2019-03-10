@@ -2,9 +2,10 @@
     --------------------------------------------
     Filename: core.con.tcs3x7x.spin
     Author: Jesse Burt
+    Description: Low-level constants
     Copyright (c) 2018
     Started: Jun 24, 2018
-    Updated: Nov 27, 2018
+    Updated: Mar 10, 2019
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -22,38 +23,54 @@ CON
 ' CMD   TYPE        ADDR (REG)/SF
 
 ' CMD - bit 7
-    CMD               = %1  << 7
+    CMD                 = $80
+        FLD_TYPE        = 5
+        TYPE_BYTE       = %00 << FLD_TYPE  'Don't auto-increment address pointer - use for reading single register
+        TYPE_BLOCK      = %01 << FLD_TYPE  'Auto-increment address pointer - use for reading multiple sequential registers
+        TYPE_SPECIAL    = %11 << FLD_TYPE  'Special Function
+        SF_CLR_INT_CLR  = %00110
 
-' TYPE - bits 6..5
-    TYPE_BYTE         = %00 << 5  'Don't auto-increment address pointer - use for reading single register
-    TYPE_BLOCK        = %01 << 5  'Auto-increment address pointer - use for reading multiple sequential registers
-    TYPE_SPECIAL      = %11 << 5  'Special Function
+    ENABLE              = $00
+    ENABLE_MASK         = $1B
+        FLD_AIEN        = 4
+        FLD_WEN         = 3
+        FLD_AEN         = 1
+        FLD_PON         = 0
+        MASK_AIEN       = ENABLE_MASK ^ (1 << FLD_AIEN)
+        MASK_WEN        = ENABLE_MASK ^ (1 << FLD_WEN)
+        MASK_AEN        = ENABLE_MASK ^ (1 << FLD_AEN)
+        MASK_PON        = ENABLE_MASK ^ (1 << FLD_PON)
 
-' ADDR/SF - bits 4..0
-    SF_CLR_INT_CLR    = %00110
+    ATIME               = $01
+    WTIME               = $03
 
-    REG_ENABLE        = $00       'AIEN bit 4, WEN bit 3, AEN bit 1, PON BIT 0
-    REG_ATIME         = $01       '2'S COMP; 2.4MS TO 614MS
-    REG_WTIME         = $03       'WAIT TIME
-    REG_AILTL         = $04       'CLEAR INTERRUPT LOW THRESHOLD
-    REG_AILTH         = $05
-    REG_AIHTL         = $06       'CLEAR INTERRUPT HIGH THRESHOLD
-    REG_AIHTH         = $07
-    REG_APERS         = $0C       'PERSISTENCE FILTER - BITS 3..0
-    REG_CONFIG        = $0D
-    REG_CONTROL       = $0F       'AGAIN BITS 1..0, 1X, 4X, 16X, 60X GAIN, 2'S COMP
+    AILTL               = $04
+    AILTH               = $05
+    AIHTL               = $06
+    AIHTH               = $07
 
-    REG_DEVID         = $12
-    REG_STATUS        = $13
+    APERS               = $0C
+    APERS_MASK          = $0F
 
-    REG_CDATAL        = $14       'CLEAR DATA
-    REG_CDATAH        = $15
-    REG_RDATAL        = $16       'RED DATA
-    REG_RDATAH        = $17
-    REG_GDATAL        = $18       'GREEN DATA
-    REG_GDATAH        = $19
-    REG_BDATAL        = $1A       'BLUE DATA
-    REG_BDATAH        = $1B
+    CONFIG              = $0D
+    CONFIG_MASK         = $02
+
+    CONTROL             = $0F
+    CONTROL_MASK        = $03
+
+    DEVID               = $12
+
+    STATUS              = $13
+    STATUS_MASK         = $11
+
+    CDATAL              = $14       'CLEAR DATA
+    CDATAH              = $15
+    RDATAL              = $16       'RED DATA
+    RDATAH              = $17
+    GDATAL              = $18       'GREEN DATA
+    GDATAH              = $19
+    BDATAL              = $1A       'BLUE DATA
+    BDATAH              = $1B
 
 PUB Null
 ' This is not a top-level object
