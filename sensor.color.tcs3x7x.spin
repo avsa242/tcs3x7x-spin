@@ -129,10 +129,20 @@ PUB EnableWaitLong(enabled) | cmd, tmp, aien, aen, pon
 
     writeRegX (core#CONFIG, 1, enabled)
 
-PUB Gain
-' Returns current gain setting
-    readRegX(core#CONTROL, 1, @result)
-    return lookupz((result & %11): 1, 4, 16, 60)
+PUB Gain(factor) | tmp
+' Set sensor amplifier gain, as a multiplier
+'   Valid values: 1, 4, 16, 60
+'   Any other value polls the chip and returns the current setting
+    readRegX(core#CONTROL, 1, @tmp)
+    case factor
+        1, 4, 16, 60:
+            factor := lookdownz(factor: 1, 4, 16, 60)
+        OTHER:
+            result := tmp & core#FLD_AGAIN
+            return lookupz(result: 1, 4, 16, 60)
+
+    tmp &= core#CONTROL_MASK
+    writeRegX (core#CONTROL, 1, tmp)
 
 PUB GetRGBC(buff_addr)
 ' Get sensor data into buff_addr
@@ -195,21 +205,6 @@ PUB Power(enabled) | tmp
 
     if enabled
         time.USleep (2400)  'Wait 2.4ms per datasheet p.15
-
-PUB SetGain (factor) | again
-' Set sensor amplifier gain
-'   Valid values: 1 (default), 4, 16, 60
-'   Invalid values ignored
-    case factor
-        1:  again := %00
-        4:  again := %01
-        16: again := %10
-        60: again := %11
-        OTHER:
-            return FALSE
-
-    writeRegX (core#CONTROL, 1, again)
-
 
 PUB SetIntThreshold(low_thresh, high_thresh)
 ' Set interrupt triggering threshold

@@ -57,6 +57,8 @@ CON
 
     CONTROL             = $0F
     CONTROL_MASK        = $03
+        FLD_AGAIN       = 0
+        BITS_AGAIN      = %11
 
     DEVID               = $12
 
