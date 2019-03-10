@@ -69,22 +69,20 @@ PUB DataValid
     readRegX ( core#STATUS, 1, @result)
     result := (result & core#FLD_AVALID) * TRUE
 
-PUB EnableInts(enabled) | cmd, aen, wen, pon, tmp
+PUB Interrupts(enabled) | tmp
 ' Allow interrupts to assert the INT pin
-' NOTE: This doesn't affect the interrupt flag in the STATUS register.
-' If an interrupt occurs, the Interrupt method will still return TRUE, even if EnableInts is set to FALSE.
+'   Valid values: TRUE (-1 or 1), FALSE
+'   Any other value polls the chip and returns the current setting
+'   Returns: TRUE if an interrupt occurs, FALSE otherwise.
+'   NOTE: This doesn't affect the interrupt flag in the STATUS register.
+    readRegX (core#ENABLE, 1, @tmp)
     case ||enabled
-        0, 1: enabled := ||enabled
+        0, 1: enabled := ||enabled << core#FLD_AIEN
         OTHER:
-            return
+            result := ((tmp >> core#FLD_AIEN) & %1) * TRUE
 
-    tmp := getReg_ENABLE        'We need to preserve the other bits in the register
-                                'before modifying the state of this bit, so read the reg first
-    wen := tmp >> 3 & %1
-    aen := tmp >> 1 & %1
-    pon := tmp & %1
-
-    tmp := ((enabled << 4) | (wen << 3) | (aen << 1) | pon) & $1F
+    tmp &= core#MASK_AIEN
+    tmp := (tmp | enabled) & core#ENABLE_MASK
     writeRegX (core#ENABLE, 1, tmp)
 
 PUB EnableSensor(enabled) | cmd, tmp, aien, wen, pon
@@ -292,10 +290,10 @@ PUB WaitLongEnabled
     readRegX(core#CONFIG, 1, @result)
     result := ((result >> 1) & %1) * TRUE
 
-PRI getReg_ENABLE: reg_enable
+{PRI getReg_ENABLE: reg_enable
 
     readRegX(core#ENABLE, 1{8}, @reg_enable)
-
+}
 PRI getReg_WTIME: reg_wtime
 
     readRegX(core#WTIME, 1{8}, @reg_wtime)
