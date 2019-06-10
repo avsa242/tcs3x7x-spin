@@ -87,11 +87,20 @@ PUB Gain(factor) | tmp
 
 PUB GetRGBC(buff_addr)
 ' Get sensor data into buff_addr
-' IMPORTANT: This buffer needs to be 8 bytes in length
+'   Data format:
+'       WORD 0: Clear channel
+'       WORD 1: Red channel
+'       WORD 2: Green channel
+'       WORD 3: Blue channel
+' IMPORTANT: This buffer needs to be 4 words in length
     readRegX (core#CDATAL, 8, buff_addr)
 
-PUB IntegrationTime (cycles) | tmp ' XXX Rewrite to take 'ms' as param
-' Set sensor integration time, in cycles
+PUB IntegrationTime (usec) | tmp
+' Set sensor integration time, in microseconds
+'   Valid values: 2_400 to 700_000, in multiples of 2_400
+'   Any other value polls the chip and returns the current setting
+'   NOTE: Setting will be rounded, if an even multiple of 2_400 isn't given
+'   NOTE: Max effective resolution achieved with 154_000..700_000
 '   Each cycle is approx 2.4ms (exception: 256 cycles is 700ms)
 '
 '   Cycles      Time    Effective range:
@@ -100,17 +109,20 @@ PUB IntegrationTime (cycles) | tmp ' XXX Rewrite to take 'ms' as param
 '   42          101ms   15+ bits    (max count: 43008)
 '   64          154ms   16 bits     (max count: 65535)
 '   256         700ms   16 bits     (max count: 65535)
-'   Max effective resolution achieved with 64..256
-'   Valid values: 1 to 256
-'   Any other value polls the chip and returns the current setting
     readRegX (core#ATIME, 1, @tmp)
-    case cycles
-        1..256:
-            cycles := 256-cycles
+    case usec
+        2_400..612_000:
+            usec := 255-(usec/2_400)
+        700_000:
+            usec := 255
         OTHER:
-            return result := 256-tmp
-
-    writeRegX (core#ATIME, 1, cycles)
+            case tmp
+                $01..$FF:
+                    result := (255-tmp) * 2_400
+                $00:
+                    result := 700_000
+            return
+    writeRegX (core#ATIME, 1, usec)
 
 PUB Interrupt
 ' Check if the sensor has triggered an interrupt
