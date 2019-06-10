@@ -79,11 +79,11 @@ PUB Gain(factor) | tmp
         1, 4, 16, 60:
             factor := lookdownz(factor: 1, 4, 16, 60)
         OTHER:
-            result := tmp & core#FLD_AGAIN
+            result := tmp & core#BITS_AGAIN
             return lookupz(result: 1, 4, 16, 60)
 
-    tmp &= core#CONTROL_MASK
-    writeRegX (core#CONTROL, 1, tmp)
+    factor &= core#CONTROL_MASK
+    writeRegX (core#CONTROL, 1, factor)
 
 PUB GetRGBC(buff_addr)
 ' Get sensor data into buff_addr
