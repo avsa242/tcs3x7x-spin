@@ -49,7 +49,8 @@ PUB Startx(SCL_PIN, SDA_PIN, I2C_HZ): okay
             if okay := i2c.setupx (SCL_PIN, SDA_PIN, I2C_HZ)    'I2C Object Started?
                 time.MSleep (1)
                 if i2c.present (SLAVE_WR)
-                    return okay
+                    if lookdown(PartID: core#DEVID_3472_1_5, core#DEVID_3472_3_7)
+                        return okay
 
     return FALSE                                                'If we got here, something went wrong
 
