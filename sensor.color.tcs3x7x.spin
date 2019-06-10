@@ -35,7 +35,7 @@ OBJ
     i2c   : "com.i2c"
     time  : "time"
 
-PRI Null
+PUB Null
 ' This is not a top-level object
 
 PUB Start: okay                                                 'Default to "standard" Propeller I2C pins and 400kHz
@@ -66,8 +66,8 @@ PUB ClearInt | cmd
 PUB DataValid
 ' Check if the sensor data is valid (i.e., has completed an integration cycle)
 '   Returns TRUE if so, FALSE if not
-    readRegX ( core#STATUS, 1, @result)
-    result := (result & core#FLD_AVALID) * TRUE
+    readRegX (core#STATUS, 1, @result)
+    result := (result & %1) * TRUE
 
 PUB Gain(factor) | tmp
 ' Set sensor amplifier gain, as a multiplier

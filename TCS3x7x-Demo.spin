@@ -161,8 +161,11 @@ PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata, cmax, i, int, thr, rro
     repeat until _demo_state <> PRINT_RGBC
         if _led_enabled
             io.High (WHITE_LED_PIN)
-            repeat until rgb.DataValid
-            rgb.GetRGBC (@rgbc_data)
+
+        repeat until rgb.DataValid
+        rgb.GetRGBC (@rgbc_data)
+
+        if _led_enabled
             io.Low (WHITE_LED_PIN)
 
         ser.Position (55, 0)
