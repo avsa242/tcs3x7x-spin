@@ -112,13 +112,13 @@ PUB IntegrationTime (usec) | tmp
     readRegX (core#ATIME, 1, @tmp)
     case usec
         2_400..612_000:
-            usec := 255-(usec/2_400)
+            usec := 256-(usec/2_400)
         700_000:
-            usec := 255
+            usec := 0
         OTHER:
             case tmp
                 $01..$FF:
-                    result := (255-tmp) * 2_400
+                    result := (256-tmp) * 2_400
                 $00:
                     result := 700_000
             return

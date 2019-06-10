@@ -5,11 +5,15 @@ This is a P8X32A/Propeller driver object for AMS's (formerly TAOS) TCS3x7x-serie
 
 ## Salient Features
 
-* I2C connection (tested up to 400kHz)
+* I2C connection up to 400kHz
 * Adjustable sensor gain
 * Optional interrupts (set thresholds, set persistence filter)
 * Power management through sensor's built-in wait timer
 * Adjustable ADC integration time
+
+## Requirements
+
+* 1 extra core/cog for the PASM I2C driver
 
 ## Limitations
 

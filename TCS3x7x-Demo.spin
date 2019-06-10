@@ -57,7 +57,7 @@ PUB Main
     ser.Clear
     rgb.IntThreshold ($0F00, $A000)
     rgb.Persistence (5)
-    rgb.IntegrationTime (32)
+    rgb.IntegrationTime (76_800)
 
     repeat
         case _demo_state
