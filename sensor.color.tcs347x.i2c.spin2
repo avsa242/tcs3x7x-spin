@@ -1,11 +1,11 @@
-{
+i{
     --------------------------------------------
-    Filename: sensor.color.tcs3x7x.spin
+    Filename: sensor.color.tcs347x.i2c.spin2
     Author: Jesse Burt
-    Description: Driver for the TAOS TCS3x7x RGB color sensor
-    Copyright (c) 2018
-    Started: Jun 24, 2018
-    Updated: Jun 10, 2019
+    Description: Driver for the TAOS TCS347x RGB color sensor (P2 version)
+    Copyright (c) 2019
+    Started: Nov 10, 2019
+    Updated: Nov 13, 2019
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -15,15 +15,14 @@ CON
     SLAVE_WR        = core#SLAVE_ADDR
     SLAVE_RD        = SLAVE_WR|1
 
-    DEF_SCL         = 28
-    DEF_SDA         = 29
     DEF_HZ          = 400_000
     I2C_MAX_FREQ    = core#I2C_MAX_FREQ
 
-    CMD_BYTE        = (core#CMD | core#TYPE_BYTE)' << 8 | SLAVE_WR
-    CMD_BLOCK       = (core#CMD | core#TYPE_BLOCK)' << 8 | SLAVE_WR
-    CMD_SF          = (core#CMD | core#TYPE_SPECIAL)' << 8 | SLAVE_WR
+    CMD_BYTE        = (core#CMD | core#TYPE_BYTE)
+    CMD_BLOCK       = (core#CMD | core#TYPE_BLOCK)
+    CMD_SF          = (core#CMD | core#TYPE_SPECIAL)
 
+' Some symbolic constants that can be used with the Gain method
     GAIN_DEF        = 1
     GAIN_LOW        = 4
     GAIN_MED        = 16
@@ -31,31 +30,32 @@ CON
 
 OBJ
 
-    core  : "core.con.tcs3x7x"
+    core  : "core.con.tcs347x"
     i2c   : "com.i2c"
     time  : "time"
 
 PUB Null
 ' This is not a top-level object
 
-PUB Start: okay                                                 'Default to "standard" Propeller I2C pins and 400kHz
-
-    okay := Startx (DEF_SCL, DEF_SDA, DEF_HZ)
+PUB Start(SCL_PIN, SDA_PIN, DEF_HZ): okay                       ' Default to 400kHz
+    okay := Startx (SCL_PIN, SDA_PIN, DEF_HZ)
 
 PUB Startx(SCL_PIN, SDA_PIN, I2C_HZ): okay
 
     if lookdown(SCL_PIN: 0..63) and lookdown(SDA_PIN: 0..63)
         if I2C_HZ =< core#I2C_MAX_FREQ
-            if okay := i2c.Setup (SCL_PIN, SDA_PIN, I2C_HZ)    'I2C Object Started?
+            if okay := i2c.Setup (SCL_PIN, SDA_PIN, I2C_HZ)     ' I2C Object Started?
                 time.MSleep (1)
                 if i2c.Present (SLAVE_WR)
                     if lookdown(PartID: core#DEVID_3472_1_5, core#DEVID_3472_3_7)
-                        return okay
+                        return okay                             ' Is it really a TCS3472x part?
 
-    return FALSE                                                'If we got here, something went wrong
+    return FALSE                                                ' If we got here, something went wrong
 
 PUB Stop
 
+    SensorEnabled(FALSE)
+    Power(FALSE)
 
 PUB ClearInt | cmd_packet
 ' Clears an asserted interrupt
@@ -69,13 +69,13 @@ PUB DataValid
     readReg (core#STATUS, 1, @result)
     result := (result & %1) * TRUE
 
-PUB Gain(factor) | tmp
+PUB Gain(factor=-2) | tmp
 ' Set sensor amplifier gain, as a multiplier
 '   Valid values: 1, 4, 16, 60
 '   Any other value polls the chip and returns the current setting
     tmp := $00
     readReg(core#CONTROL, 1, @tmp)
-    case factor
+    case_fast factor
         1, 4, 16, 60:
             factor := lookdownz(factor: 1, 4, 16, 60)
         OTHER:
@@ -95,7 +95,7 @@ PUB GetRGBC(buff_addr)
 ' IMPORTANT: This buffer needs to be 4 words in length
     readReg (core#CDATAL, 8, buff_addr)
 
-PUB IntegrationTime (usec) | tmp
+PUB IntegrationTime (usec=-2) | tmp
 ' Set sensor integration time, in microseconds
 '   Valid values: 2_400 to 700_000, in multiples of 2_400
 '   Any other value polls the chip and returns the current setting
@@ -133,7 +133,7 @@ PUB Interrupt
     result := ((result >> core#FLD_AINT) & %1) * TRUE
     return
 
-PUB Interrupts(enabled) | tmp
+PUB Interrupts(enabled=-2) | tmp
 ' Allow interrupts to assert the INT pin
 '   Valid values: TRUE (-1 or 1), FALSE
 '   Any other value polls the chip and returns the current setting
@@ -141,7 +141,7 @@ PUB Interrupts(enabled) | tmp
 '   NOTE: This doesn't affect the interrupt flag in the STATUS register.
     tmp := $00
     readReg (core#ENABLE, 1, @tmp)
-    case ||enabled
+    case_fast ||enabled
         0, 1: enabled := ||enabled << core#FLD_AIEN
         OTHER:
             result := ((tmp >> core#FLD_AIEN) & %1) * TRUE
@@ -151,7 +151,7 @@ PUB Interrupts(enabled) | tmp
     tmp := (tmp | enabled) & core#ENABLE_MASK
     writeReg (core#ENABLE, 1, tmp)
 
-PUB IntThreshold(low, high) | tmp
+PUB IntThreshold(low=-2, high=-2) | tmp
 ' Sets low and high thresholds for triggering an interrupt
 '   Valid values: 0..65535 for both low and high thresholds
 '   Any other value polls the chip and returns the current setting
@@ -180,7 +180,7 @@ PUB PartID
     result := $00
     readReg(core#DEVID, 1, @result)
 
-PUB Persistence (cycles) | tmp
+PUB Persistence (cycles=-2) | tmp
 ' Set Interrupt persistence, in cycles
 '   Defines how many consecutive measurements must be outside the interrupt threshold (Set with IntThreshold)
 '   before an interrupt is actually triggered (e.g., to reduce false positives)
@@ -193,23 +193,22 @@ PUB Persistence (cycles) | tmp
 '   Any other value polls the chip and returns the current setting
     tmp := $00
     readReg (core#PERS, 1, @tmp)
-    case cycles
+    case_fast cycles
         0..3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60:
             cycles := lookdownz(cycles: 0, 1, 2, 3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60) & core#BITS_APERS
         OTHER:
             result := tmp & core#BITS_APERS
             return lookupz(result: 0, 1, 2, 3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60)
 
-    tmp &= core#PERS_MASK
-    writeReg (core#PERS, 1, tmp)
+    writeReg (core#PERS, 1, cycles)
 
-PUB Power(enabled) | tmp
+PUB Power(enabled=-2) | tmp
 ' Enable power to the sensor
 '   Valid values: TRUE (-1 or 1), FALSE
 '   Any other value polls the chip and returns the current setting
     tmp := $00
     readReg (core#ENABLE, 1, @tmp)
-    case ||enabled
+    case_fast ||enabled
         0, 1: enabled := ||enabled << core#FLD_PON
         OTHER:
             result := ((tmp >> core#FLD_PON) & %1) * TRUE
@@ -222,15 +221,15 @@ PUB Power(enabled) | tmp
     if enabled
         time.USleep (2400)  'Wait 2.4ms per datasheet p.15
 
-PUB Sensor(enabled) | tmp
-' Enable sensor data acquisition
+PUB SensorEnabled(enabled=-2) | tmp
+' Enable sensor data acquisition (i.e., enable the on-sensor ADCs)
 '   Valid values: TRUE (-1 or 1), FALSE
 '   Any other value polls the chip and returns the current setting
 ' NOTE: If disabling the sensor, the previously acquired data will remain latched in sensor
 ' (during same power cycle - doesn't survive resets).
     tmp := $00
     readReg (core#ENABLE, 1, @tmp)
-    case ||enabled
+    case_fast ||enabled
         0, 1: enabled := ||enabled << core#FLD_AEN
         OTHER:
             result := ((tmp >> core#FLD_AEN) & %1) * TRUE
@@ -240,7 +239,7 @@ PUB Sensor(enabled) | tmp
     tmp := (tmp | enabled) & core#ENABLE_MASK
     writeReg (core#ENABLE, 1, tmp)
 
-PUB WaitTime (cycles) | tmp
+PUB WaitTime (cycles=-2) | tmp
 ' Wait time, in cycles (see WaitTimer)
 '   Each cycle is approx 2.4ms
 '   unless long waits are enabled (WaitLongEnabled(TRUE))
@@ -256,7 +255,7 @@ PUB WaitTime (cycles) | tmp
 
     writeReg (core#WTIME, 1, cycles)
 
-PUB WaitTimer(enabled) | tmp
+PUB WaitTimer(enabled=-2) | tmp
 ' Enable sensor wait timer
 '   Valid values: FALSE, TRUE or 1
 '   Any other value polls the chip and returns the current setting
@@ -264,7 +263,7 @@ PUB WaitTimer(enabled) | tmp
 '       If enabled, use SetWaitTime to specify number of cycles
     tmp := $00
     readReg (core#ENABLE, 1, @tmp)
-    case ||enabled
+    case_fast ||enabled
         0, 1: enabled := ||enabled << core#FLD_WEN
         OTHER:
             result := ((tmp >> core#FLD_WEN) & %1) * TRUE
@@ -274,7 +273,7 @@ PUB WaitTimer(enabled) | tmp
     tmp := (tmp | enabled) & core#ENABLE_MASK
     writeReg (core#ENABLE, 1, tmp)
 
-PUB WaitLongTimer(enabled) | tmp
+PUB WaitLongTimer(enabled=-2) | tmp
 ' Enable longer wait time cycles
 '   If enabled, wait cycles set using the SetWaitTime method are increased by a factor of 12x
 '   Valid values: FALSE, TRUE or 1
@@ -282,27 +281,27 @@ PUB WaitLongTimer(enabled) | tmp
 ' XXX Investigate merging this functionality with WaitTimer to simplify use
     tmp := $00
     readReg(core#CONFIG, 1, @tmp)
-    case ||enabled
+    case_fast ||enabled
         0, 1:
             enabled := (||enabled) << core#FLD_WLONG
         OTHER:
             result := (tmp >> core#FLD_WLONG)
-            return result := (result & %1) * TRUE
+            result := (result & %1) * TRUE
+            return
 
-    tmp &= core#CONFIG_MASK
-    writeReg (core#CONFIG, 1, tmp)
+    enabled &= core#CONFIG_MASK
+    writeReg (core#CONFIG, 1, enabled)
 
 PRI readReg(reg, nr_bytes, buff_addr) | cmd_packet, tmp
 
-    case nr_bytes
+    cmd_packet := tmp := 0
+    case_fast nr_bytes
         0:
-            return
+            return FALSE
         1:
-'            cmd_packet.word[0] := CMD_BYTE | (reg << 8)
             cmd_packet.byte[0] := SLAVE_WR
             cmd_packet.byte[1] := CMD_BYTE | reg
         OTHER:
-'            cmd_packet.word[0] := CMD_BLOCK | (reg << 8)
             cmd_packet.byte[0] := SLAVE_WR
             cmd_packet.byte[1] := CMD_BLOCK | reg
 
@@ -313,41 +312,41 @@ PRI readReg(reg, nr_bytes, buff_addr) | cmd_packet, tmp
     i2c.Start
     i2c.Write (SLAVE_RD)
     repeat tmp from 0 to nr_bytes-1
-        byte[buff_addr][tmp] := i2c.Read(tmp == nr_bytes-1)
+        byte[buff_addr][tmp] := i2c.Read(tmp == nr_bytes-1) 'NAK if reading last byte
     i2c.Stop
 
 PRI writeReg(reg, nr_bytes, val) | cmd_packet[2], tmp
 
-    case nr_bytes
+    case_fast nr_bytes
         0:
-'            cmd_packet.word[0] := CMD_SF | (reg << 8)
             cmd_packet.byte[0] := SLAVE_WR
             cmd_packet.byte[1] := CMD_SF | reg
-            nr_bytes := val := 0
+            nr_bytes := 2
+            val := 0
         1:
-'            cmd_packet.word[0] := CMD_BYTE | (reg << 8)
             cmd_packet.byte[0] := SLAVE_WR
             cmd_packet.byte[1] := CMD_BYTE | reg
             cmd_packet.byte[2] := val
+            nr_bytes := 3
         2:
-'            cmd_packet.word[0] := CMD_BLOCK | (reg << 8)
             cmd_packet.byte[0] := SLAVE_WR
             cmd_packet.byte[1] := CMD_BLOCK | reg
             cmd_packet.word[1] := val
+            nr_bytes := 3
         4:
-'            cmd_packet.word[0] := CMD_BLOCK | (reg << 8)
             cmd_packet.byte[0] := SLAVE_WR
             cmd_packet.byte[1] := CMD_BLOCK | reg
             cmd_packet.word[1] := val.word[0]
             cmd_packet.word[2] := val.word[1]
-
+            nr_bytes := 6
         OTHER:
-            return
+            return $0E
 
     i2c.Start
-    repeat tmp from 0 to nr_bytes + 2
+    repeat tmp from 0 to nr_bytes-1
         i2c.Write (cmd_packet.byte[tmp])
     i2c.Stop
+    return
 
 DAT
 {

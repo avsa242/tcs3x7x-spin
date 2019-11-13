@@ -1,10 +1,10 @@
 {
     --------------------------------------------
-    Filename: TCS3x7x-Demo.spin2 (P2 version)
+    Filename: TCS347x-Demo.spin2 (P2 version)
     Author: Jesse Burt
     Copyright (c) 2019
     Started: Nov 11, 2019
-    Updated: Nov 11, 2019
+    Updated: Nov 13, 2019
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -55,7 +55,7 @@ OBJ
     cfg   : "core.con.boardcfg.p2eval"
     ser   : "com.serial.terminal.ansi"
     time  : "time"
-    rgb   : "sensor.color.tcs3x7x.i2c.spin2"
+    rgb   : "sensor.color.tcs347x.i2c.spin2"
     io    : "io"
 
 VAR
@@ -67,10 +67,10 @@ VAR
     byte _led_enabled
     byte _int
 
-PUB Main
+PUB Main | rgbc_data[2], cdata, rdata, gdata, bdata
 
     Setup
-    ser.Clear
+
     rgb.IntThreshold ($0F00, $A000)
     rgb.Persistence (5)
     rgb.IntegrationTime (250_000)
@@ -146,24 +146,14 @@ PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata, cmax, i, int, thr, rro
     brow := crow + 3
     ser.Clear
     ser.Position (0, 0)
-    ser.PrintF("Gain: ")
-
-    ser.Position (6, 0)
-    ser.Dec (rgb.Gain(-2))
-    ser.PrintF("x ")
+    ser.PrintF("Gain: %dx", rgb.Gain)
 
     ser.Position (11, 0)
-    ser.PrintF("Ints: ")
-    int := ||rgb.Interrupts(-2)
-    ser.Position (17, 0)
-    ser.Str (lookupz(int: string("Off"), string("On ")))
+    ser.PrintF("Ints: %s", lookupz(||rgb.Interrupts: string("Off"), string("On ")))
 
     ser.Position (21, 0)
-    ser.PrintF("Thr: ")
-    thr := rgb.IntThreshold(-2, -2)
-    ser.Hex (thr & $FFFF, 4)
-    ser.Char ("-")
-    ser.Hex ((thr >> 16) & $FFFF, 4)
+    thr := rgb.IntThreshold
+    ser.PrintF("Thr: %x .. %x", thr & $FFFF, (thr >> 16) & $FFFF)
 
     ser.Position (0, crow)
     ser.PrintF("Clear")
@@ -184,8 +174,8 @@ PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata, cmax, i, int, thr, rro
         if _led_enabled
             io.Low (WHITE_LED_PIN)
 
-        ser.Position (55, 0)
-        ser.Dec (ina[INT_PIN])
+'        ser.Position (55, 0)
+'        ser.Dec (ina[INT_PIN])
 
         cdata := ((rgbc_data.byte[1] << 8) | rgbc_data.byte[0]) & $FFFF
         rdata := ((rgbc_data.byte[3] << 8) | rgbc_data.byte[2]) & $FFFF
@@ -201,10 +191,10 @@ PUB ChangeThresh(lim, delta) | tmp
 ' Change interrupt thresholds
     case lim
         0:  'Change low threshold
-            tmp := rgb.IntThreshold(-2, -2)
+            tmp := rgb.IntThreshold
             rgb.IntThreshold (0 #> ((tmp & $FFFF) + delta) <# $FFFF, (tmp >> 16) & $FFFF)
         1:  'Change high threshold
-            tmp := rgb.IntThreshold(-2, -2)
+            tmp := rgb.IntThreshold
             rgb.IntThreshold (tmp & $FFFF, 0 #> ((tmp >> 16) & $FFFF) + delta <# $FFFF)
         OTHER:
 
@@ -217,12 +207,12 @@ PUB ClearInts
 
 PUB CycleGain
 
-    case rgb.Gain(-2)
+    case rgb.Gain
         1: rgb.Gain (4)
         4: rgb.Gain (16)
         16: rgb.Gain (60)
         60: rgb.Gain (1)
-
+        OTHER: rgb.Gain (1)
     _demo_state := _prev_state
 
 PUB ToggleLED
@@ -241,7 +231,7 @@ PUB ToggleLED
 
 PUB ToggleInts | tmp
 
-    tmp := rgb.Interrupts(-2)
+    tmp := rgb.Interrupts
     if tmp
         rgb.Interrupts (FALSE)
     else
@@ -252,7 +242,7 @@ PUB TogglePower | tmp
 
     ser.NewLine
     ser.PrintF("Turning Power ")
-    tmp := rgb.Power (-2)
+    tmp := rgb.Power
     if tmp
         ser.PrintF("off\n")
         rgb.Power (FALSE)
@@ -265,20 +255,20 @@ PUB ToggleRGBC | tmp
 
     ser.NewLine
     ser.PrintF("Turning RGBC ")
-    tmp := rgb.Sensor(-2)
+    tmp := rgb.SensorEnabled
     if tmp
         ser.PrintF("off\n")
-        rgb.Sensor (FALSE)
+        rgb.SensorEnabled (FALSE)
     else
         ser.PrintF("on\n")
-        rgb.Sensor (TRUE)
+        rgb.SensorEnabled (TRUE)
     waitkey
 
 PUB ToggleWait | tmp
 
     ser.NewLine
     ser.PrintF("Turning Wait timer ")
-    tmp := rgb.WaitTimer (-2)
+    tmp := rgb.WaitTimer
     if tmp
         ser.PrintF("off\n")
         rgb.WaitTimer (FALSE)
@@ -375,9 +365,10 @@ PUB keyDaemon | key_cmd
 
 PUB waitkey
 
-  _demo_state := WAITING
-  ser.PrintF("Press any key\n")
-  repeat until _demo_state <> WAITING
+    _demo_state := WAITING
+    ser.PrintF("Press any key\n")
+    repeat until _demo_state <> WAITING
+    _demo_state := _prev_state
 
 PUB Help
 
@@ -410,9 +401,9 @@ PUB Setup
 
     _keyDaemon_cog := cognew(keyDaemon, @_keyDaemon_stack)
     if _rgb_cog := rgb.Startx(I2C_SCL, I2C_SDA, I2C_HZ)
-        ser.PrintF("tcs3x7x object started\n")
+        ser.PrintF("TCS347x object started\n")
     else
-        ser.PrintF("tcs3x7x object failed to start - halting\n")
+        ser.PrintF("TCS347x object failed to start - halting\n")
         time.MSleep (500)
         FlashLED(cfg#LED1, 500)
     _max_cols := 1

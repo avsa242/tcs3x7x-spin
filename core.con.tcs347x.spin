@@ -1,11 +1,11 @@
 {
     --------------------------------------------
-    Filename: core.con.tcs3x7x.spin
+    Filename: core.con.tcs347x.spin
     Author: Jesse Burt
     Description: Low-level constants
     Copyright (c) 2018
     Started: Jun 24, 2018
-    Updated: Mar 10, 2019
+    Updated: Nov 13, 2019
     See end of file for terms of use.
     --------------------------------------------
 }
