@@ -62,19 +62,19 @@ PUB ClearInt | cmd
 ' Clears an asserted interrupt
 ' NOTE: This affects both the state of the sensor's INT pin,
 ' as well as the interrupt flag in the STATUS register, as read by the Interrupt method.
-    writeRegX (core#SF_CLR_INT_CLR, 0, 0)
+    writeReg (core#SF_CLR_INT_CLR, 0, 0)
 
 PUB DataValid
 ' Check if the sensor data is valid (i.e., has completed an integration cycle)
 '   Returns TRUE if so, FALSE if not
-    readRegX (core#STATUS, 1, @result)
+    readReg (core#STATUS, 1, @result)
     result := (result & %1) * TRUE
 
 PUB Gain(factor) | tmp
 ' Set sensor amplifier gain, as a multiplier
 '   Valid values: 1, 4, 16, 60
 '   Any other value polls the chip and returns the current setting
-    readRegX(core#CONTROL, 1, @tmp)
+    readReg(core#CONTROL, 1, @tmp)
     case factor
         1, 4, 16, 60:
             factor := lookdownz(factor: 1, 4, 16, 60)
@@ -83,7 +83,7 @@ PUB Gain(factor) | tmp
             return lookupz(result: 1, 4, 16, 60)
 
     factor &= core#CONTROL_MASK
-    writeRegX (core#CONTROL, 1, factor)
+    writeReg (core#CONTROL, 1, factor)
 
 PUB GetRGBC(buff_addr)
 ' Get sensor data into buff_addr
@@ -93,7 +93,7 @@ PUB GetRGBC(buff_addr)
 '       WORD 2: Green channel
 '       WORD 3: Blue channel
 ' IMPORTANT: This buffer needs to be 4 words in length
-    readRegX (core#CDATAL, 8, buff_addr)
+    readReg (core#CDATAL, 8, buff_addr)
 
 PUB IntegrationTime (usec) | tmp
 ' Set sensor integration time, in microseconds
@@ -109,7 +109,7 @@ PUB IntegrationTime (usec) | tmp
 '   42          101ms   15+ bits    (max count: 43008)
 '   64          154ms   16 bits     (max count: 65535)
 '   256         700ms   16 bits     (max count: 65535)
-    readRegX (core#ATIME, 1, @tmp)
+    readReg (core#ATIME, 1, @tmp)
     case usec
         2_400..612_000:
             usec := 256-(usec/2_400)
@@ -122,12 +122,12 @@ PUB IntegrationTime (usec) | tmp
                 $00:
                     result := 700_000
             return
-    writeRegX (core#ATIME, 1, usec)
+    writeReg (core#ATIME, 1, usec)
 
 PUB Interrupt
 ' Check if the sensor has triggered an interrupt
 '   Returns TRUE or FALSE
-    readRegX (core#STATUS, 1, @result)
+    readReg (core#STATUS, 1, @result)
     result := ((result >> core#FLD_AINT) & %1) * TRUE
 
 PUB Interrupts(enabled) | tmp
@@ -136,7 +136,7 @@ PUB Interrupts(enabled) | tmp
 '   Any other value polls the chip and returns the current setting
 '   Returns: TRUE if an interrupt occurs, FALSE otherwise.
 '   NOTE: This doesn't affect the interrupt flag in the STATUS register.
-    readRegX (core#ENABLE, 1, @tmp)
+    readReg (core#ENABLE, 1, @tmp)
     case ||enabled
         0, 1: enabled := ||enabled << core#FLD_AIEN
         OTHER:
@@ -144,7 +144,7 @@ PUB Interrupts(enabled) | tmp
 
     tmp &= core#MASK_AIEN
     tmp := (tmp | enabled) & core#ENABLE_MASK
-    writeRegX (core#ENABLE, 1, tmp)
+    writeReg (core#ENABLE, 1, tmp)
 
 PUB IntThreshold(low, high) | tmp
 ' Sets low and high thresholds for triggering an interrupt
@@ -153,7 +153,7 @@ PUB IntThreshold(low, high) | tmp
 '      Low threshold is returned in the least significant word
 '      High threshold is returned in the most significant word
 '   NOTE: This works only with the CLEAR data channel
-    readRegX(core#AILTL, 4, @tmp)
+    readReg(core#AILTL, 4, @tmp)
     case low
         0..65535:
         OTHER:
@@ -165,13 +165,13 @@ PUB IntThreshold(low, high) | tmp
         OTHER:
             return tmp
 
-    writeRegX (core#AILTL, 4, tmp)
+    writeReg (core#AILTL, 4, tmp)
 
 PUB PartID
 ' Returns byte corresponding to part number of sensor
 '  $44: TCS34721 and TCS34725
 '  $4D: TCS34723 and TCS34727
-    readRegX(core#DEVID, 1, @result)
+    readReg(core#DEVID, 1, @result)
 
 PUB Persistence (cycles) | tmp
 ' Set Interrupt persistence, in cycles
@@ -184,7 +184,7 @@ PUB Persistence (cycles) | tmp
 '       3 - Must be 3 consecutive measurements outside the set threshold to trigger an interrupt
 '       5..60 - _n_ consecutive measurements, in multiples of 5
 '   Any other value polls the chip and returns the current setting
-    readRegX (core#PERS, 1, @tmp)
+    readReg (core#PERS, 1, @tmp)
     case cycles
         0..3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60:
             cycles := lookdownz(cycles: 0, 1, 2, 3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60) & core#BITS_APERS
@@ -193,13 +193,13 @@ PUB Persistence (cycles) | tmp
             return lookupz(result: 0, 1, 2, 3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60)
 
     tmp &= core#PERS_MASK
-    writeRegX (core#PERS, 1, tmp)
+    writeReg (core#PERS, 1, tmp)
 
 PUB Power(enabled) | tmp
 ' Enable power to the sensor
 '   Valid values: TRUE (-1 or 1), FALSE
 '   Any other value polls the chip and returns the current setting
-    readRegX (core#ENABLE, 1, @tmp)
+    readReg (core#ENABLE, 1, @tmp)
     case ||enabled
         0, 1: enabled := ||enabled << core#FLD_PON
         OTHER:
@@ -207,7 +207,7 @@ PUB Power(enabled) | tmp
 
     tmp &= core#MASK_PON
     tmp := (tmp | enabled) & core#ENABLE_MASK
-    writeRegX (core#ENABLE, 1, tmp)
+    writeReg (core#ENABLE, 1, tmp)
 
     if enabled
         time.USleep (2400)  'Wait 2.4ms per datasheet p.15
@@ -218,7 +218,7 @@ PUB Sensor(enabled) | tmp
 '   Any other value polls the chip and returns the current setting
 ' NOTE: If disabling the sensor, the previously acquired data will remain latched in sensor
 ' (during same power cycle - doesn't survive resets).
-    readRegX (core#ENABLE, 1, @tmp)
+    readReg (core#ENABLE, 1, @tmp)
     case ||enabled
         0, 1: enabled := ||enabled << core#FLD_AEN
         OTHER:
@@ -226,7 +226,7 @@ PUB Sensor(enabled) | tmp
 
     tmp &= core#MASK_AEN
     tmp := (tmp | enabled) & core#ENABLE_MASK
-    writeRegX (core#ENABLE, 1, tmp)
+    writeReg (core#ENABLE, 1, tmp)
 
 PUB WaitTime (cycles) | tmp
 ' Wait time, in cycles (see WaitTimer)
@@ -234,14 +234,14 @@ PUB WaitTime (cycles) | tmp
 '   unless long waits are enabled (WaitLongEnabled(TRUE))
 '   then the wait times are 12x longer
 '   Any other value polls the chip and returns the current setting
-    readRegX (core#WTIME, 1, @tmp)
+    readReg (core#WTIME, 1, @tmp)
     case cycles
         1..256:
             cycles := 256-cycles
         OTHER:
             return result := 256-tmp
 
-    writeRegX (core#WTIME, 1, cycles)
+    writeReg (core#WTIME, 1, cycles)
 
 PUB WaitTimer(enabled) | tmp
 ' Enable sensor wait timer
@@ -249,7 +249,7 @@ PUB WaitTimer(enabled) | tmp
 '   Any other value polls the chip and returns the current setting
 '   NOTE: Used for power management - allows sensor to wait in between acquisition cycles
 '       If enabled, use SetWaitTime to specify number of cycles
-    readRegX (core#ENABLE, 1, @tmp)
+    readReg (core#ENABLE, 1, @tmp)
     case ||enabled
         0, 1: enabled := ||enabled << core#FLD_WEN
         OTHER:
@@ -257,7 +257,7 @@ PUB WaitTimer(enabled) | tmp
 
     tmp &= core#MASK_WEN
     tmp := (tmp | enabled) & core#ENABLE_MASK
-    writeRegX (core#ENABLE, 1, tmp)
+    writeReg (core#ENABLE, 1, tmp)
 
 PUB WaitLongTimer(enabled) | tmp
 ' Enable longer wait time cycles
@@ -265,7 +265,7 @@ PUB WaitLongTimer(enabled) | tmp
 '   Valid values: FALSE, TRUE or 1
 '   Any other value polls the chip and returns the current setting
 ' XXX Investigate merging this functionality with WaitTimer to simplify use
-    readRegX(core#CONFIG, 1, @tmp)
+    readReg(core#CONFIG, 1, @tmp)
     case ||enabled
         0, 1:
             enabled := (||enabled) << core#FLD_WLONG
@@ -274,9 +274,9 @@ PUB WaitLongTimer(enabled) | tmp
             return result := (result & %1) * TRUE
 
     tmp &= core#CONFIG_MASK
-    writeRegX (core#CONFIG, 1, tmp)
+    writeReg (core#CONFIG, 1, tmp)
 
-PRI readRegX(reg, bytes, dest) | cmd
+PRI readReg(reg, bytes, dest) | cmd
 
     case bytes
         0:
@@ -294,7 +294,7 @@ PRI readRegX(reg, bytes, dest) | cmd
     i2c.rd_block (dest, bytes, TRUE)
     i2c.stop
 
-PRI writeRegX(reg, bytes, val) | cmd[2]
+PRI writeReg(reg, bytes, val) | cmd[2]
 
     case bytes
         0:
