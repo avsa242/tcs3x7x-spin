@@ -70,6 +70,13 @@ PUB DataValid
     readReg (core#STATUS, 1, @result)
     result := (result & %1) * TRUE
 
+PUB DeviceID
+' Read device ID
+'   Returns:
+'       $44: TCS34721 and TCS34725
+'       $4D: TCS34723 and TCS34727
+    readReg(core#DEVID, 1, @result)
+
 PUB Gain(factor) | tmp
 ' Set sensor amplifier gain, as a multiplier
 '   Valid values: 1, 4, 16, 60
@@ -166,12 +173,6 @@ PUB IntThreshold(low, high) | tmp
             return tmp
 
     writeReg (core#AILTL, 4, tmp)
-
-PUB PartID
-' Returns byte corresponding to part number of sensor
-'  $44: TCS34721 and TCS34725
-'  $4D: TCS34723 and TCS34727
-    readReg(core#DEVID, 1, @result)
 
 PUB Persistence (cycles) | tmp
 ' Set Interrupt persistence, in cycles
