@@ -203,7 +203,7 @@ PUB Persistence (cycles=-2) | tmp
 
     writeReg (core#PERS, 1, cycles)
 
-PUB Power(enabled=-2) | tmp
+PUB Powered(enabled=-2) | tmp
 ' Enable power to the sensor
 '   Valid values: TRUE (-1 or 1), FALSE
 '   Any other value polls the chip and returns the current setting

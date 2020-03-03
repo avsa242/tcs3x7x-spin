@@ -196,7 +196,7 @@ PUB Persistence (cycles) | tmp
     tmp &= core#PERS_MASK
     writeReg (core#PERS, 1, tmp)
 
-PUB Power(enabled) | tmp
+PUB Powered(enabled) | tmp
 ' Enable power to the sensor
 '   Valid values: TRUE (-1 or 1), FALSE
 '   Any other value polls the chip and returns the current setting
