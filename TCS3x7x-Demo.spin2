@@ -1,10 +1,11 @@
 {
     --------------------------------------------
-    Filename: TCS347x-Demo.spin2 (P2 version)
+    Filename: TCS347x-Demo.spin2
     Author: Jesse Burt
-    Copyright (c) 2019
+    Description: Demo of the TCS3x7x driver (P2 version)
+    Copyright (c) 2020
     Started: Nov 11, 2019
-    Updated: Nov 13, 2019
+    Updated: Mar 3, 2020
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -30,9 +31,11 @@ CON
     I2C_SCL         = 27
     I2C_SDA         = 28
     I2C_HZ          = 400_000
+
 ' I/O Pin connected to the (optional) on-board white LED and INT pin
     WHITE_LED_PIN   = 32
     INT_PIN         = 24
+
 ' Demo mode constants
     DISP_HELP       = 1
     TOGGLE_POWER    = 2
@@ -55,7 +58,7 @@ OBJ
     cfg   : "core.con.boardcfg.p2eval"
     ser   : "com.serial.terminal.ansi"
     time  : "time"
-    rgb   : "sensor.color.tcs347x.i2c.spin2"
+    rgb   : "sensor.color.tcs3x7x.i2c.spin2"
     io    : "io"
 
 VAR
@@ -67,7 +70,7 @@ VAR
     byte _led_enabled
     byte _int
 
-PUB Main | rgbc_data[2], cdata, rdata, gdata, bdata
+PUB Main
 
     Setup
 
@@ -149,7 +152,7 @@ PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata, cmax, i, int, thr, rro
     ser.PrintF("Gain: %dx", rgb.Gain)
 
     ser.Position (11, 0)
-    ser.PrintF("Ints: %s", lookupz(||rgb.Interrupts: string("Off"), string("On ")))
+    ser.PrintF("Ints: %s", lookupz(||rgb.InterruptsEnabled: string("Off"), string("On ")))
 
     ser.Position (21, 0)
     thr := rgb.IntThreshold
@@ -169,7 +172,7 @@ PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata, cmax, i, int, thr, rro
             io.High (WHITE_LED_PIN)
 
         repeat until rgb.DataValid
-        rgb.GetRGBC (@rgbc_data)
+        rgb.RGBCData (@rgbc_data)
 
         if _led_enabled
             io.Low (WHITE_LED_PIN)
@@ -231,37 +234,37 @@ PUB ToggleLED
 
 PUB ToggleInts | tmp
 
-    tmp := rgb.Interrupts
+    tmp := rgb.InterruptsEnabled
     if tmp
-        rgb.Interrupts (FALSE)
+        rgb.InterruptsEnabled (FALSE)
     else
-        rgb.Interrupts (TRUE)
+        rgb.InterruptsEnabled (TRUE)
     _demo_state := _prev_state
 
 PUB TogglePower | tmp
 
     ser.NewLine
     ser.PrintF("Turning Power ")
-    tmp := rgb.Power
+    tmp := rgb.Powered
     if tmp
         ser.PrintF("off\n")
-        rgb.Power (FALSE)
+        rgb.Powered (FALSE)
     else
         ser.PrintF("on\n")
-        rgb.Power (TRUE)
+        rgb.Powered (TRUE)
     waitkey
 
 PUB ToggleRGBC | tmp
 
     ser.NewLine
     ser.PrintF("Turning RGBC ")
-    tmp := rgb.SensorEnabled
+    tmp := rgb.OpMode
     if tmp
         ser.PrintF("off\n")
-        rgb.SensorEnabled (FALSE)
+        rgb.OpMode(rgb#PAUSE)
     else
         ser.PrintF("on\n")
-        rgb.SensorEnabled (TRUE)
+        rgb.OpMode(rgb#MEASURE)
     waitkey
 
 PUB ToggleWait | tmp
@@ -401,20 +404,15 @@ PUB Setup
 
     _keyDaemon_cog := cognew(keyDaemon, @_keyDaemon_stack)
     if _rgb_cog := rgb.Startx(I2C_SCL, I2C_SDA, I2C_HZ)
-        ser.PrintF("TCS347x object started\n")
+        ser.PrintF("TCS3X7X driver started\n")
     else
-        ser.PrintF("TCS347x object failed to start - halting\n")
+        ser.PrintF("TCS3X7X driver failed to start - halting\n")
         time.MSleep (500)
         FlashLED(cfg#LED1, 500)
     _max_cols := 1
 '    _isr_cog := cognew(ISR, @_isr_stack)
 
-PUB FlashLED(led_pin, delay_ms)
-
-    io.Output(led_pin)
-    repeat
-        io.Toggle(led_pin)
-        time.MSleep(delay_ms)
+#include "lib.utility.spin2"
 
 DAT
 {

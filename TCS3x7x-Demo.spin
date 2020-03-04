@@ -2,9 +2,10 @@
     --------------------------------------------
     Filename: TCS3x7x-Demo.spin
     Author: Jesse Burt
-    Copyright (c) 2018
+    Description: Demo of the TCS3x7x driver
+    Copyright (c) 2020
     Started: Jun 24, 2018
-    Updated: Jun 10, 2019
+    Updated: Mar 3, 2020
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -14,9 +15,19 @@ CON
     _clkmode        = cfg#_clkmode
     _xinfreq        = cfg#_xinfreq
 
+    LED             = cfg#LED1
+    SER_RX          = 31
+    SER_TX          = 30
+    SER_BAUD        = 115_200
+
+    I2C_SCL         = 28
+    I2C_SDA         = 29
+    I2C_HZ          = 400_000
+
 ' I/O Pin connected to the (optional) on-board white LED and INT pin
     WHITE_LED_PIN   = 25
     INT_PIN         = 24
+
 ' Demo mode constants
     DISP_HELP       = 1
     TOGGLE_POWER    = 2
@@ -37,7 +48,7 @@ CON
 OBJ
 
     cfg   : "core.con.boardcfg.flip"
-    ser   : "com.serial.terminal"
+    ser   : "com.serial.terminal.ansi"
     time  : "time"
     rgb   : "sensor.color.tcs3x7x.i2c"
     io    : "io"
@@ -138,7 +149,7 @@ PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata, cmax, i, int, thr, rro
 
     ser.Position (11, 0)
     ser.Str (string("Ints: "))
-    int := ||rgb.Interrupts(-2)
+    int := ||rgb.InterruptsEnabled(-2)
     ser.Position (17, 0)
     ser.Str (lookupz(int: string("Off"), string("On ")))
 
@@ -163,7 +174,7 @@ PUB PrintRGBC | rgbc_data[2], rdata, gdata, bdata, cdata, cmax, i, int, thr, rro
             io.High (WHITE_LED_PIN)
 
         repeat until rgb.DataValid
-        rgb.GetRGBC (@rgbc_data)
+        rgb.RGBCData (@rgbc_data)
 
         if _led_enabled
             io.Low (WHITE_LED_PIN)
@@ -216,46 +227,46 @@ PUB ToggleLED
 
     if _led_enabled
         _led_enabled := FALSE
-        ser.Str (string("off", ser#NL))
+        ser.Str (string("off", ser#CR, ser#LF))
         io.Low (WHITE_LED_PIN)  'Turn off explicitly, just to be sure
     else
-        ser.Str (string("on", ser#NL))
+        ser.Str (string("on", ser#CR, ser#LF))
         _led_enabled := TRUE
     waitkey
 
 PUB ToggleInts | tmp
 
-    tmp := rgb.Interrupts(-2)
+    tmp := rgb.InterruptsEnabled(-2)
     if tmp
-        rgb.Interrupts (FALSE)
+        rgb.InterruptsEnabled (FALSE)
     else
-        rgb.Interrupts (TRUE)
+        rgb.InterruptsEnabled (TRUE)
     _demo_state := _prev_state
 
 PUB TogglePower | tmp
 
     ser.NewLine
     ser.Str (string("Turning Power "))
-    tmp := rgb.Power (-2)
+    tmp := rgb.Powered (-2)
     if tmp
-        ser.Str (string("off", ser#NL))
-        rgb.Power (FALSE)
+        ser.Str (string("off", ser#CR, ser#LF))
+        rgb.Powered (FALSE)
     else
-        ser.Str (string("on", ser#NL))
-        rgb.Power (TRUE)
+        ser.Str (string("on", ser#CR, ser#LF))
+        rgb.Powered (TRUE)
     waitkey
 
 PUB ToggleRGBC | tmp
 
     ser.NewLine
     ser.Str (string("Turning RGBC "))
-    tmp := rgb.Sensor(-2)
+    tmp := rgb.OpMode(-2)
     if tmp
-        ser.Str (string("off", ser#NL))
-        rgb.Sensor (FALSE)
+        ser.Str (string("off", ser#CR, ser#LF))
+        rgb.OpMode(rgb#PAUSE)
     else
-        ser.Str (string("on", ser#NL))
-        rgb.Sensor (TRUE)
+        ser.Str (string("on", ser#CR, ser#LF))
+        rgb.OpMode(rgb#MEASURE)
     waitkey
 
 PUB ToggleWait | tmp
@@ -264,10 +275,10 @@ PUB ToggleWait | tmp
     ser.Str (string("Turning Wait timer "))
     tmp := rgb.WaitTimer (-2)
     if tmp
-        ser.Str (string("off", ser#NL))
+        ser.Str (string("off", ser#CR, ser#LF))
         rgb.WaitTimer (FALSE)
     else
-        ser.Str (string("on", ser#NL))
+        ser.Str (string("on", ser#CR, ser#LF))
         rgb.WaitTimer (TRUE)
     waitkey
 
@@ -277,10 +288,10 @@ PUB ToggleWaitLong | tmp
     ser.Str (string("Turning Long Waits "))
     tmp := rgb.WaitLongTimer (-2)
     if tmp
-        ser.Str (string("off", ser#NL))
+        ser.Str (string("off", ser#CR, ser#LF))
         rgb.WaitLongTimer (FALSE)
     else
-        ser.Str (string("on", ser#NL))
+        ser.Str (string("on", ser#CR, ser#LF))
         rgb.WaitLongTimer (TRUE)
     waitkey
 
@@ -360,25 +371,25 @@ PUB keyDaemon | key_cmd
 PUB waitkey
 
   _demo_state := WAITING
-  ser.Str (string("Press any key", ser#NL))
+  ser.Str (string("Press any key", ser#CR, ser#LF))
   repeat until _demo_state <> WAITING
 
 PUB Help
 
     ser.Clear
-    ser.Str (string("Keys: ", ser#NL, ser#NL))
-    ser.Str (string("a, A:  Toggle sensor data acquisition (ADCs)", ser#NL))
-    ser.Str (string("c, C:  Clear interrupt", ser#NL))
-    ser.Str (string("g, G:  Cycle gain setting", ser#NL))
-    ser.Str (string("h, H:  This help screen", ser#NL))
-    ser.Str (string("i, I:  Toggle sensor interrupt pin enable (NOTE: Doesn't affect interrupt bit in sensor's status register)", ser#NL))
-    ser.Str (string("l, L:  Toggle LED Strobe", ser#NL))
-    ser.Str (string("p, P:  Toggle sensor power", ser#NL))
-    ser.Str (string("q, Q:  Toggle Long Waits", ser#NL))
-    ser.Str (string("s, S:  Monitor sensor data", ser#NL))
-    ser.Str (string("w, W:  Toggle Wait timer", ser#NL))
-    ser.Str (string("-, +:  Adjust interrupt low-threshold", ser#NL))
-    ser.Str (string("[, ]:  Adjust interrupt high-threshold", ser#NL))
+    ser.Str (string("Keys: ", ser#CR, ser#LF, ser#CR, ser#LF))
+    ser.Str (string("a, A:  Toggle sensor data acquisition (ADCs)", ser#CR, ser#LF))
+    ser.Str (string("c, C:  Clear interrupt", ser#CR, ser#LF))
+    ser.Str (string("g, G:  Cycle gain setting", ser#CR, ser#LF))
+    ser.Str (string("h, H:  This help screen", ser#CR, ser#LF))
+    ser.Str (string("i, I:  Toggle sensor interrupt pin enable (NOTE: Doesn't affect interrupt bit in sensor's status register)", ser#CR, ser#LF))
+    ser.Str (string("l, L:  Toggle LED Strobe", ser#CR, ser#LF))
+    ser.Str (string("p, P:  Toggle sensor power", ser#CR, ser#LF))
+    ser.Str (string("q, Q:  Toggle Long Waits", ser#CR, ser#LF))
+    ser.Str (string("s, S:  Monitor sensor data", ser#CR, ser#LF))
+    ser.Str (string("w, W:  Toggle Wait timer", ser#CR, ser#LF))
+    ser.Str (string("-, +:  Adjust interrupt low-threshold", ser#CR, ser#LF))
+    ser.Str (string("[, ]:  Adjust interrupt high-threshold", ser#CR, ser#LF))
 
     repeat until _demo_state <> DISP_HELP
 
@@ -387,26 +398,23 @@ PUB Setup
     io.Output (WHITE_LED_PIN)
     io.Low (WHITE_LED_PIN)
 
-    repeat until _ser_cog := ser.Start (115_200)
+    repeat until _ser_cog := ser.StartRXTX (SER_RX, SER_TX, 0, SER_BAUD)
+    time.MSleep(30)
     ser.Clear
-    ser.Str (string("Serial terminal started", ser#NL))
+    ser.Str (string("Serial terminal started", ser#CR, ser#LF))
     _keyDaemon_cog := cognew(keyDaemon, @_keyDaemon_stack)
-    if _rgb_cog := rgb.Start
-        ser.Str (string("tcs3x7x object started", ser#NL))
+    if _rgb_cog := rgb.Startx(I2C_SCL, I2C_SDA, I2C_HZ)
+        ser.Str (string("TCS3X7X driver started", ser#CR, ser#LF))
     else
-        ser.Str (string("tcs3x7x object failed to start - halting", ser#NL))
+        ser.Str (string("TCS3X7X driver failed to start - halting", ser#CR, ser#LF))
         time.MSleep (500)
         ser.Stop
-        flash(cfg#LED1)
+        FlashLED(LED, 500)
     _max_cols := 1
     _isr_cog := cognew(ISR, @_isr_stack)
 
-PUB flash(led_pin)
+#include "lib.utility.spin"
 
-    dira[led_pin] := 1
-    repeat
-        !outa[led_pin]
-        time.MSleep (500)
 DAT
 {
     --------------------------------------------------------------------------------------------------------
