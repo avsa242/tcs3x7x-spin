@@ -1,6 +1,6 @@
 {
     --------------------------------------------
-    Filename: sensor.color.tcs3x7x.spin
+    Filename: sensor.color.tcs3x7x.i2c.spin
     Author: Jesse Burt
     Description: Driver for the TAOS TCS3x7x RGB color sensor
     Copyright (c) 2020
