@@ -41,7 +41,21 @@ OBJ
 PUB Null
 ' This is not a top-level object
 
+PUB Defaults
+' Factory defaults
+    InterruptsEnabled(FALSE)
+    WaitTimer(FALSE)
+    OpMode(PAUSE)
+    Powered(FALSE)
+    IntegrationTime(2_400)
+    WaitTime(2_400)
+    IntThreshold(0, 0)
+    Persistence(0)
+    WaitLongTimer(FALSE)
+    Gain(1)
+
 PUB Start(SCL_PIN, SDA_PIN): okay                               ' Default to 400kHz
+
     okay := Startx (SCL_PIN, SDA_PIN, DEF_HZ)
 
 PUB Startx(SCL_PIN, SDA_PIN, I2C_HZ): okay
@@ -70,6 +84,7 @@ PUB ClearInt
 PUB DataValid
 ' Check if the sensor data is valid (i.e., has completed an integration cycle)
 '   Returns TRUE if so, FALSE if not
+    result := FALSE
     readReg (core#STATUS, 1, @result)
     result := (result & %1) * TRUE
 
