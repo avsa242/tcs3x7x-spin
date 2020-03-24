@@ -56,7 +56,6 @@ PUB Startx(SCL_PIN, SDA_PIN, I2C_HZ): okay
                 if i2c.Present (SLAVE_WR)
                     if lookdown(DeviceID: core#DEVID_3472_1_5, core#DEVID_3472_3_7)
                         return okay                             ' Is it really a TCS3472x part?
-
     return FALSE                                                ' If we got here, something went wrong
 
 PUB Stop
@@ -67,7 +66,7 @@ PUB Stop
 
 PUB Defaults
 ' Factory defaults
-    InterruptsEnabled(FALSE)
+    IntsEnabled(FALSE)
     WaitTimer(FALSE)
     OpMode(PAUSE)
     Powered(FALSE)
@@ -84,7 +83,7 @@ PUB ClearInt
 ' as well as the interrupt flag in the STATUS register, as read by the Interrupt method.
     writeReg (core#SF_CLR_INT_CLR, 0, 0)
 
-PUB DataValid
+PUB DataReady
 ' Check if the sensor data is valid (i.e., has completed an integration cycle)
 '   Returns TRUE if so, FALSE if not
     result := FALSE
@@ -153,7 +152,7 @@ PUB Interrupt
     result := ((result >> core#FLD_AINT) & %1) * TRUE
     return
 
-PUB InterruptsEnabled(enabled) | tmp
+PUB IntsEnabled(enabled) | tmp
 ' Allow interrupts to assert the INT pin
 '   Valid values: TRUE (-1 or 1), FALSE
 '   Any other value polls the chip and returns the current setting

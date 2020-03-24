@@ -48,7 +48,7 @@ PUB Main | rgbc_data[2], rdata, gdata, bdata, cdata, cmax, i, int, thr, rrow, gr
     rgb.ClearInt                                            ' Clear interrupts
     rgb.Gain(1)                                             ' 1, 4, 16, 60 (x)
     rgb.WaitTimer(FALSE)                                    ' On-chip timer - wait between measurements
-    rgb.InterruptsEnabled (TRUE)                            ' TRUE, FALSE
+    rgb.IntsEnabled (TRUE)                                  ' TRUE, FALSE
     rgb.IntThreshold ($1000, $FFFF)                         ' low level, high level: 0..65535 each
     rgb.Persistence (60)                                    ' Num. consecutive cycles measurement must stay outside threshold to actually trigger an interrupt: 0..60 (see Persistence() in driver file)
     rgb.IntegrationTime (12_000)                            ' Sensor ADC integration time, in microseconds (2_400..700_000, multiples of 2_400)
@@ -68,7 +68,7 @@ PUB Main | rgbc_data[2], rdata, gdata, bdata, cdata, cmax, i, int, thr, rrow, gr
     ser.str (string("x "))
 
     ser.str (string("Interrups: "))
-    int := ||rgb.InterruptsEnabled(-2)
+    int := ||rgb.IntsEnabled(-2)
     ser.str (lookupz(int: string("Off"), string("On ")))
 
     ser.str (string("  Threshold: "))
@@ -92,7 +92,7 @@ PUB Main | rgbc_data[2], rdata, gdata, bdata, cdata, cmax, i, int, thr, rrow, gr
         rgb.OpMode(rgb#MEASURE)                             ' Turn on the sensor ADCs
         if _led_enabled                                     ' Flash the white LED, if enabled
             io.High (WHITE_LED_PIN)
-        repeat until rgb.DataValid                          ' When the chip has taken a set of measurements,
+        repeat until rgb.DataReady                          ' When the chip has taken a set of measurements,
         rgb.RGBCData (@rgbc_data)                           '   read the data
         rgb.OpMode(rgb#PAUSE)                               ' Turn off the sensor ADCs
         if _led_enabled
