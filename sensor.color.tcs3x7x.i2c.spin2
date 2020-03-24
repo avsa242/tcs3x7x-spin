@@ -5,7 +5,7 @@ i{
     Description: Driver for the TAOS TCS3x7x RGB color sensor (P2 version)
     Copyright (c) 2020
     Started: Nov 10, 2019
-    Updated: Mar 3, 2020
+    Updated: Mar 24, 2020
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -15,7 +15,7 @@ CON
     SLAVE_WR        = core#SLAVE_ADDR
     SLAVE_RD        = SLAVE_WR|1
 
-    DEF_HZ          = 400_000
+    DEF_HZ          = 100_000
     I2C_MAX_FREQ    = core#I2C_MAX_FREQ
 
     CMD_BYTE        = (core#CMD | core#TYPE_BYTE)
@@ -41,24 +41,7 @@ OBJ
 PUB Null
 ' This is not a top-level object
 
-PUB Defaults
-' Factory defaults
-    InterruptsEnabled(FALSE)
-    WaitTimer(FALSE)
-    OpMode(PAUSE)
-    Powered(FALSE)
-    IntegrationTime(2_400)
-    WaitTime(2_400)
-    IntThreshold(0, 0)
-    Persistence(0)
-    WaitLongTimer(FALSE)
-    Gain(1)
-
-PUB Start(SCL_PIN, SDA_PIN): okay                               ' Default to 400kHz
-
-    okay := Startx (SCL_PIN, SDA_PIN, DEF_HZ)
-
-PUB Startx(SCL_PIN, SDA_PIN, I2C_HZ): okay
+PUB Start(SCL_PIN, SDA_PIN, I2C_HZ=100_000): okay
 
     if lookdown(SCL_PIN: 0..63) and lookdown(SDA_PIN: 0..63)
         if I2C_HZ =< core#I2C_MAX_FREQ
@@ -74,6 +57,19 @@ PUB Stop
 
     OpMode(PAUSE)
     Powered(FALSE)
+
+PUB Defaults
+' Factory defaults
+    InterruptsEnabled(FALSE)
+    WaitTimer(FALSE)
+    OpMode(PAUSE)
+    Powered(FALSE)
+    IntegrationTime(2_400)
+    WaitTime(2_400)
+    IntThreshold(0, 0)
+    Persistence(0)
+    WaitLongTimer(FALSE)
+    Gain(1)
 
 PUB ClearInt
 ' Clears an asserted interrupt

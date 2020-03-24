@@ -5,7 +5,7 @@
     Description: Demo of the TCS3x7x driver (P2 version)
     Copyright (c) 2020
     Started: Nov 11, 2019
-    Updated: Mar 3, 2020
+    Updated: Mar 24, 2020
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -35,23 +35,6 @@ CON
 ' I/O Pin connected to the (optional) on-board white LED and INT pin
     WHITE_LED_PIN   = 14
     INT_PIN         = 24
-
-' Demo mode constants
-    DISP_HELP       = 1
-    TOGGLE_POWER    = 2
-    TOGGLE_RGBC     = 3
-    PRINT_RGBC      = 4
-    TOGGLE_INTS     = 5
-    TOGGLE_WAIT     = 6
-    TOGGLE_LED      = 7
-    TOGGLE_WAITLONG = 8
-    CYCLE_GAIN      = 9
-    CLEAR_INTS      = 10
-    LOWINTDEC       = 11
-    LOWINTINC       = 12
-    HIINTDEC        = 13
-    HIINTINC        = 14
-    WAITING         = 15
 
 OBJ
 
@@ -88,12 +71,10 @@ PUB Main | rgbc_data[2], rdata, gdata, bdata, cdata, cmax, i, int, thr, rrow, gr
     brow := crow + 3
     ser.clear
     ser.position (0, 0)
-    ser.printf("Gain: %dx", rgb.Gain)
+    ser.printf("Gain: %dx  ", rgb.Gain)
 
-    ser.position (11, 0)
     ser.printf("Interrupts: %s", lookupz(||rgb.InterruptsEnabled: string("Off"), string("On ")))
 
-'    ser.position (30, 0)
     thr := rgb.IntThreshold                                 ' word 0 = low threshold, word 1 = high threshold
     ser.printf(" Threshold: %x .. %x", thr & $FFFF, (thr >> 16) & $FFFF)
 

@@ -5,7 +5,7 @@
     Description: Driver for the TAOS TCS3x7x RGB color sensor
     Copyright (c) 2020
     Started: Jun 24, 2018
-    Updated: Mar 3, 2020
+    Updated: Mar 24, 2020
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -17,7 +17,7 @@ CON
 
     DEF_SCL         = 28
     DEF_SDA         = 29
-    DEF_HZ          = 400_000
+    DEF_HZ          = 100_000
     I2C_MAX_FREQ    = core#I2C_MAX_FREQ
 
     CMD_BYTE        = (core#CMD | core#TYPE_BYTE) << 8 | SLAVE_WR
@@ -53,7 +53,7 @@ PUB Startx(SCL_PIN, SDA_PIN, I2C_HZ): okay
         if I2C_HZ =< core#I2C_MAX_FREQ
             if okay := i2c.setupx (SCL_PIN, SDA_PIN, I2C_HZ)    ' I2C Object Started?
                 time.MSleep (1)
-                if i2c.present (SLAVE_WR)
+                if i2c.Present (SLAVE_WR)
                     if lookdown(DeviceID: core#DEVID_3472_1_5, core#DEVID_3472_3_7)
                         return okay                             ' Is it really a TCS3472x part?
 
@@ -65,6 +65,19 @@ PUB Stop
     Powered(FALSE)
     i2c.terminate
 
+PUB Defaults
+' Factory defaults
+    InterruptsEnabled(FALSE)
+    WaitTimer(FALSE)
+    OpMode(PAUSE)
+    Powered(FALSE)
+    IntegrationTime(2_400)
+    WaitTime(2_400)
+    IntThreshold(0, 0)
+    Persistence(0)
+    WaitLongTimer(FALSE)
+    Gain(1)
+
 PUB ClearInt
 ' Clears an asserted interrupt
 ' NOTE: This affects both the state of the sensor's INT pin,
@@ -74,6 +87,7 @@ PUB ClearInt
 PUB DataValid
 ' Check if the sensor data is valid (i.e., has completed an integration cycle)
 '   Returns TRUE if so, FALSE if not
+    result := FALSE
     readReg (core#STATUS, 1, @result)
     result := (result & %1) * TRUE
 
