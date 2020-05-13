@@ -73,7 +73,7 @@ PUB Main | rgbc_data[2], rdata, gdata, bdata, cdata, cmax, i, int, thr, rrow, gr
     ser.position (0, 0)
     ser.printf("Gain: %dx  ", rgb.Gain)
 
-    ser.printf("Interrupts: %s", lookupz(||rgb.IntsEnabled: string("Off"), string("On ")))
+    ser.printf("Interrupts: %s", lookupz(abs(rgb.IntsEnabled): string("Off"), string("On ")))
 
     thr := rgb.IntThreshold                                 ' word 0 = low threshold, word 1 = high threshold
     ser.printf(" Threshold: %x .. %x", thr & $FFFF, (thr >> 16) & $FFFF)
