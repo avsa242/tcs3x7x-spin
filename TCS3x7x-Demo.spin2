@@ -12,8 +12,8 @@
 
 CON
 
-    _xtlfreq   = cfg._xtlfreq
-    _clkfreq   = cfg._clkfreq_def
+    _xtlfreq        = cfg._xtlfreq
+    _clkfreq        = cfg._clkfreq_def
 
 ' -- User-modifiable constants
     LED             = cfg.LED1
