@@ -80,7 +80,7 @@ CON
     BDATAL              = $1A       'BLUE DATA
     BDATAH              = $1B
 
-#ifndef __propeller2
+#ifndef __propeller2__
 PUB Null
 '' This is not a top-level object
 #endif
