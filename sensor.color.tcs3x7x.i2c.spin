@@ -84,38 +84,38 @@ PUB ClearInt{}
 '   the flag readable using the Interrupt() method
     writereg(core#SF_CLR_INT_CLR, 0, 0)
 
-PUB DataReady{}
+PUB DataReady{}: flag
 ' Flag indicating new RGBC data sample ready
 '   Returns TRUE if so, FALSE if not
-    result := FALSE
-    readreg(core#STATUS, 1, @result)
-    result := (result & 1) * TRUE
+    flag := 0
+    readreg(core#STATUS, 1, @flag)
+    return ((flag & 1) == 1)
 
-PUB DeviceID{}
+PUB DeviceID{}: id
 ' Read device ID
 '   Returns:
 '       $44: TCS34721 and TCS34725
 '       $4D: TCS34723 and TCS34727
-    result := 0
-    readreg(core#DEVID, 1, @result)
+    id := 0
+    readreg(core#DEVID, 1, @id)
 
-PUB Gain(factor) | tmp
+PUB Gain(factor): curr_gain
 ' Set sensor amplifier gain, as a multiplier
 '   Valid values: 1, 4, 16, 60
 '   Any other value polls the chip and returns the current setting
-    tmp := 0
-    readreg(core#CONTROL, 1, @tmp)
+    curr_gain := 0
+    readreg(core#CONTROL, 1, @curr_gain)
     case factor
         1, 4, 16, 60:
             factor := lookdownz(factor: 1, 4, 16, 60)
         other:
-            result := tmp & core#AGAIN_BITS
-            return lookupz(result: 1, 4, 16, 60)
+            curr_gain &= core#AGAIN_BITS
+            return lookupz(curr_gain: 1, 4, 16, 60)
 
     factor &= core#CONTROL_MASK
     writereg(core#CONTROL, 1, factor)
 
-PUB IntegrationTime(usec) | tmp
+PUB IntegrationTime(usec): curr_itime
 ' Set sensor integration time, in microseconds
 '   Valid values: 2_400 to 700_000, in multiples of 2_400
 '   Any other value polls the chip and returns the current setting
@@ -129,72 +129,70 @@ PUB IntegrationTime(usec) | tmp
 '   42          101ms   15+ bits    (max count: 43008)
 '   64          154ms   16 bits     (max count: 65535)
 '   256         700ms   16 bits     (max count: 65535)
-    tmp := 0
-    readreg(core#ATIME, 1, @tmp)
+    curr_itime := 0
+    readreg(core#ATIME, 1, @curr_itime)
     case usec
         2_400..612_000:
             usec := 256-(usec/2_400)
         700_000:
             usec := 0
         other:
-            case tmp
+            case curr_itime
                 $01..$FF:
-                    result := (256-tmp) * 2_400
+                    curr_itime := (256-curr_itime) * 2_400
                 $00:
-                    result := 700_000
+                    curr_itime := 700_000
             return
     writereg(core#ATIME, 1, usec)
 
-PUB Interrupt{}
+PUB Interrupt{}: flag
 ' Flag indicating an interrupt has been triggered
 '   Returns TRUE (-1) or FALSE
 '   NOTE: An active interrupt will always be visible using Interrupt(),
 '       however, to be visible on the INT pin, IntsEnabled()
 '       must be set to TRUE
-    result := 0
-    readreg(core#STATUS, 1, @result)
-    result := ((result >> core#AINT) & 1) * TRUE
-    return
+    flag := 0
+    readreg(core#STATUS, 1, @flag)
+    return ((flag >> core#AINT) & 1) == 1
 
-PUB IntsEnabled(enabled) | tmp
+PUB IntsEnabled(state): curr_state
 ' Allow interrupts to assert the INT pin
 '   Valid values: TRUE (-1 or 1), FALSE
 '   Any other value polls the chip and returns the current setting
-    tmp := 0
-    readreg(core#ENABLE, 1, @tmp)
-    case ||(enabled)
-        0, 1: enabled := ||(enabled) << core#AIEN
+    curr_state := 0
+    readreg(core#ENABLE, 1, @curr_state)
+    case ||(state)
+        0, 1: state := ||(state) << core#AIEN
         other:
-            result := ((tmp >> core#AIEN) & 1) * TRUE
-            return
+            return ((curr_state >> core#AIEN) & 1) == 1
 
-    tmp &= core#AIEN_MASK
-    tmp := (tmp | enabled) & core#ENABLE_MASK
-    writereg(core#ENABLE, 1, tmp)
+    curr_state &= core#AIEN_MASK
+    curr_state := (curr_state | state) & core#ENABLE_MASK
+    writereg(core#ENABLE, 1, curr_state)
 
-PUB IntThreshold(low, high) | tmp
+PUB IntThreshold(low, high): curr_thr | tmp
 ' Sets low and high thresholds for triggering an interrupt
 '   Valid values: 0..65535 for both low and high thresholds
 '   Any other value polls the chip and returns the current setting
 '      Low threshold is returned in the least significant word
 '      High threshold is returned in the most significant word
 '   NOTE: This works only with the CLEAR data channel
-    tmp := 0
-    readreg(core#AILTL, 4, @tmp)
+    curr_thr := 0
+    readreg(core#AILTL, 4, @curr_thr)
     case low
         0..65535:
         other:
-            return tmp
+            return curr_thr
 
     case high
         0..65535:
             tmp := (high << 16) | low
         other:
-            return tmp
+            return curr_thr
 
     writereg(core#AILTL, 4, tmp)
 
-PUB OpMode(mode) | tmp
+PUB OpMode(mode): curr_mode
 ' Set sensor operating mode
 '   Valid values:
 '       PAUSE (0): Pause measurement
@@ -202,20 +200,19 @@ PUB OpMode(mode) | tmp
 '   Any other value polls the chip and returns the current setting
 ' NOTE: If disabling the sensor, the previously acquired data will remain latched in sensor
 ' (during same power cycle - doesn't survive resets).
-    tmp := 0
-    readreg(core#ENABLE, 1, @tmp)
+    curr_mode := 0
+    readreg(core#ENABLE, 1, @curr_mode)
     case mode
         PAUSE, MEASURE:
             mode <<= core#AEN
         other:
-            result := (tmp >> core#AEN) & 1
-            return
+            return (curr_mode >> core#AEN) & 1
 
-    tmp &= core#AEN_MASK
-    tmp := (tmp | mode) & core#ENABLE_MASK
-    writereg(core#ENABLE, 1, tmp)
+    curr_mode &= core#AEN_MASK
+    curr_mode := (curr_mode | mode) & core#ENABLE_MASK
+    writereg(core#ENABLE, 1, curr_mode)
 
-PUB Persistence(cycles) | tmp
+PUB Persistence(cycles): curr_cyc
 ' Set number of consecutive cycles necessary to generate an interrupt
 '   Valid values:
 '       *0, 1, 2, 3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60
@@ -223,103 +220,98 @@ PUB Persistence(cycles) | tmp
 '           0: Every cycle generates an interrupt, regardless of value
 '           1: Any value outside the threshold generates an interrupt
 '   Any other value polls the chip and returns the current setting
-    tmp := 0
-    readreg(core#PERS, 1, @tmp)
+    curr_cyc := 0
+    readreg(core#PERS, 1, @curr_cyc)
     case cycles
         0..3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60:
             cycles := lookdownz(cycles: 0, 1, 2, 3, 5, 10, 15, 20, 25, 30, 35,{
 }           40, 45, 50, 55, 60) & core#APERS_BITS
         other:
-            result := tmp & core#APERS_BITS
-            return lookupz(result: 0, 1, 2, 3, 5, 10, 15, 20, 25, 30, 35, 40,{
-}           45, 50, 55, 60)
+            curr_cyc &= core#APERS_BITS
+            return lookupz(curr_cyc: 0, 1, 2, 3, 5, 10, 15, 20, 25, 30, 35,{
+}           40, 45, 50, 55, 60)
 
-    tmp &= core#PERS_MASK
+    curr_cyc &= core#PERS_MASK
     writereg(core#PERS, 1, cycles)
 
-PUB Powered(enabled) | tmp
+PUB Powered(state): curr_state
 ' Enable power to the sensor
 '   Valid values: TRUE (-1 or 1), FALSE
 '   Any other value polls the chip and returns the current setting
-    tmp := 0
-    readreg(core#ENABLE, 1, @tmp)
-    case ||(enabled)
-        0, 1: enabled := ||(enabled) << core#PON
+    curr_state := 0
+    readreg(core#ENABLE, 1, @curr_state)
+    case ||(state)
+        0, 1: state := ||(state) << core#PON
         other:
-            result := ((tmp >> core#PON) & 1) * TRUE
-            return
+            return ((curr_state >> core#PON) & 1) == 1
 
-    tmp &= core#PON_MASK
-    tmp := (tmp | enabled) & core#ENABLE_MASK
-    writereg(core#ENABLE, 1, tmp)
+    curr_state &= core#PON_MASK
+    curr_state := (curr_state | state) & core#ENABLE_MASK
+    writereg(core#ENABLE, 1, curr_state)
 
-    if enabled
-        time.USleep (2400)  'Wait 2.4ms per datasheet p.15
+    if state
+        time.usleep(2400)                       'Wait 2.4ms per datasheet p.15
 
-PUB RGBCData(buff_addr)
-' Get sensor data into buff_addr
+PUB RGBCData(ptr_buff)
+' Get sensor data into ptr_buff
 '   Data format:
 '       WORD 0: Clear channel
 '       WORD 1: Red channel
 '       WORD 2: Green channel
 '       WORD 3: Blue channel
 ' IMPORTANT: This buffer needs to be 4 words in length
-    readreg(core#CDATAL, 8, buff_addr)
+    readreg(core#CDATAL, 8, ptr_buff)
 
-PUB WaitTime(cycles) | tmp
+PUB WaitTime(cycles): curr_cyc
 ' Wait time, in cycles (see WaitTimer)
 '   Each cycle is approx 2.4ms
 '   unless long waits are enabled (WaitLongEnabled(TRUE))
 '   then the wait times are 12x longer
 '   Any other value polls the chip and returns the current setting
-    tmp := 0
-    readreg(core#WTIME, 1, @tmp)
+    curr_cyc := 0
+    readreg(core#WTIME, 1, @curr_cyc)
     case cycles
         1..256:
             cycles := 256-cycles
         other:
-            return result := 256-tmp
+            return 256-curr_cyc
 
     writereg(core#WTIME, 1, cycles)
 
-PUB WaitTimer(enabled) | tmp
+PUB WaitTimer(state): curr_state
 ' Enable sensor wait timer
 '   Valid values: FALSE, TRUE or 1
 '   Any other value polls the chip and returns the current setting
 '   NOTE: Used for power management - allows sensor to wait in between
-'       acquisition cycles. If enabled, use WaitTime() to specify
+'       acquisition cycles. If state, use WaitTime() to specify
 '       number of cycles.
-    tmp := 0
-    readreg(core#ENABLE, 1, @tmp)
-    case ||(enabled)
-        0, 1: enabled := ||(enabled) << core#WEN
+    curr_state := 0
+    readreg(core#ENABLE, 1, @curr_state)
+    case ||(state)
+        0, 1: state := ||(state) << core#WEN
         other:
-            result := ((tmp >> core#WEN) & 1) * TRUE
-            return
+            return ((curr_state >> core#WEN) & 1) == 1
 
-    tmp &= core#WEN_MASK
-    tmp := (tmp | enabled) & core#ENABLE_MASK
-    writereg(core#ENABLE, 1, tmp)
+    curr_state &= core#WEN_MASK
+    curr_state := (curr_state | state) & core#ENABLE_MASK
+    writereg(core#ENABLE, 1, curr_state)
 
-PUB WaitLongTimer(enabled) | tmp
+PUB WaitLongTimer(state) | curr_state
 ' Enable longer wait time cycles
-'   If enabled, wait cycles set using the SetWaitTime method are increased by a factor of 12x
+'   If state, wait cycles set using the SetWaitTime method are increased by a factor of 12x
 '   Valid values: FALSE, TRUE or 1
 '   Any other value polls the chip and returns the current setting
 ' XXX Investigate merging this functionality with WaitTimer to simplify use
-    tmp := 0
-    readreg(core#CONFIG, 1, @tmp)
-    case ||(enabled)
+    curr_state := 0
+    readreg(core#CONFIG, 1, @curr_state)
+    case ||(state)
         0, 1:
-            enabled := (||(enabled)) << core#WLONG
+            state := (||(state)) << core#WLONG
         other:
-            result := (tmp >> core#WLONG)
-            result := (result & 1) * TRUE
-            return
+            return ((curr_state >> core#WLONG) & 1) == 1
 
-
-    enabled &= core#CONFIG_MASK
-    writereg(core#CONFIG, 1, enabled)
+    state &= core#CONFIG_MASK
+    writereg(core#CONFIG, 1, state)
 
 PRI readReg(reg_nr, nr_bytes, ptr_buff) | cmd_pkt
 ' Read nr_bytes from device into ptr_buff
