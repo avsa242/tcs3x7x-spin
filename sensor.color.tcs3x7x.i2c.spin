@@ -78,12 +78,6 @@ PUB Defaults{}
     waitlongtimer(FALSE)
     gain(1)
 
-PUB ClearInt{}
-' Clears an asserted interrupt
-' NOTE: This clears an active interrupt asserting the INT pin, as well as
-'   the flag readable using the Interrupt() method
-    writereg(core#SF_CLR_INT_CLR, 0, 0)
-
 PUB DataReady{}: flag
 ' Flag indicating new RGBC data sample ready
 '   Returns TRUE if so, FALSE if not
@@ -114,6 +108,12 @@ PUB Gain(factor): curr_gain
 
     factor &= core#CONTROL_MASK
     writereg(core#CONTROL, 1, factor)
+
+PUB IntClear{}
+' Clears an asserted interrupt
+' NOTE: This clears an active interrupt asserting the INT pin, as well as
+'   the flag readable using the Interrupt() method
+    writereg(core#SF_CLR_INT_CLR, 0, 0)
 
 PUB IntegrationTime(usec): curr_itime
 ' Set sensor integration time, in microseconds
