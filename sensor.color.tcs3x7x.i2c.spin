@@ -5,7 +5,7 @@
     Description: Driver for the TAOS TCS3x7x RGB color sensor
     Copyright (c) 2020
     Started: Jun 24, 2018
-    Updated: Mar 24, 2020
+    Updated: Dec 21, 2020
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -108,7 +108,7 @@ PUB Gain(factor) | tmp
         1, 4, 16, 60:
             factor := lookdownz(factor: 1, 4, 16, 60)
         OTHER:
-            result := tmp & core#BITS_AGAIN
+            result := tmp & core#AGAIN_BITS
             return lookupz(result: 1, 4, 16, 60)
 
     factor &= core#CONTROL_MASK
@@ -149,7 +149,7 @@ PUB Interrupt
 '   Returns TRUE (-1) or FALSE
     result := $00
     readReg (core#STATUS, 1, @result)
-    result := ((result >> core#FLD_AINT) & %1) * TRUE
+    result := ((result >> core#AINT) & %1) * TRUE
     return
 
 PUB IntsEnabled(enabled) | tmp
@@ -161,12 +161,12 @@ PUB IntsEnabled(enabled) | tmp
     tmp := $00
     readReg (core#ENABLE, 1, @tmp)
     case ||enabled
-        0, 1: enabled := ||enabled << core#FLD_AIEN
+        0, 1: enabled := ||enabled << core#AIEN
         OTHER:
-            result := ((tmp >> core#FLD_AIEN) & %1) * TRUE
+            result := ((tmp >> core#AIEN) & %1) * TRUE
             return
 
-    tmp &= core#MASK_AIEN
+    tmp &= core#AIEN_MASK
     tmp := (tmp | enabled) & core#ENABLE_MASK
     writeReg (core#ENABLE, 1, tmp)
 
@@ -204,12 +204,12 @@ PUB OpMode(mode) | tmp
     readReg (core#ENABLE, 1, @tmp)
     case mode
         PAUSE, MEASURE:
-            mode <<= core#FLD_AEN
+            mode <<= core#AEN
         OTHER:
-            result := (tmp >> core#FLD_AEN) & %1
+            result := (tmp >> core#AEN) & %1
             return
 
-    tmp &= core#MASK_AEN
+    tmp &= core#AEN_MASK
     tmp := (tmp | mode) & core#ENABLE_MASK
     writeReg (core#ENABLE, 1, tmp)
 
@@ -228,9 +228,9 @@ PUB Persistence (cycles) | tmp
     readReg (core#PERS, 1, @tmp)
     case cycles
         0..3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60:
-            cycles := lookdownz(cycles: 0, 1, 2, 3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60) & core#BITS_APERS
+            cycles := lookdownz(cycles: 0, 1, 2, 3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60) & core#APERS_BITS
         OTHER:
-            result := tmp & core#BITS_APERS
+            result := tmp & core#APERS_BITS
             return lookupz(result: 0, 1, 2, 3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60)
 
     tmp &= core#PERS_MASK
@@ -243,12 +243,12 @@ PUB Powered(enabled) | tmp
     tmp := $00
     readReg (core#ENABLE, 1, @tmp)
     case ||enabled
-        0, 1: enabled := ||enabled << core#FLD_PON
+        0, 1: enabled := ||enabled << core#PON
         OTHER:
-            result := ((tmp >> core#FLD_PON) & %1) * TRUE
+            result := ((tmp >> core#PON) & %1) * TRUE
             return
 
-    tmp &= core#MASK_PON
+    tmp &= core#PON_MASK
     tmp := (tmp | enabled) & core#ENABLE_MASK
     writeReg (core#ENABLE, 1, tmp)
 
@@ -290,12 +290,12 @@ PUB WaitTimer(enabled) | tmp
     tmp := $00
     readReg (core#ENABLE, 1, @tmp)
     case ||enabled
-        0, 1: enabled := ||enabled << core#FLD_WEN
+        0, 1: enabled := ||enabled << core#WEN
         OTHER:
-            result := ((tmp >> core#FLD_WEN) & %1) * TRUE
+            result := ((tmp >> core#WEN) & %1) * TRUE
             return
 
-    tmp &= core#MASK_WEN
+    tmp &= core#WEN_MASK
     tmp := (tmp | enabled) & core#ENABLE_MASK
     writeReg (core#ENABLE, 1, tmp)
 
@@ -309,9 +309,9 @@ PUB WaitLongTimer(enabled) | tmp
     readReg(core#CONFIG, 1, @tmp)
     case ||enabled
         0, 1:
-            enabled := (||enabled) << core#FLD_WLONG
+            enabled := (||enabled) << core#WLONG
         OTHER:
-            result := (tmp >> core#FLD_WLONG)
+            result := (tmp >> core#WLONG)
             result := (result & %1) * TRUE
             return
 
