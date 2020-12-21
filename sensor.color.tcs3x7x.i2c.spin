@@ -89,21 +89,21 @@ PUB DataReady{}
 '   Returns TRUE if so, FALSE if not
     result := FALSE
     readreg(core#STATUS, 1, @result)
-    result := (result & %1) * TRUE
+    result := (result & 1) * TRUE
 
 PUB DeviceID{}
 ' Read device ID
 '   Returns:
 '       $44: TCS34721 and TCS34725
 '       $4D: TCS34723 and TCS34727
-    result := $00
+    result := 0
     readreg(core#DEVID, 1, @result)
 
 PUB Gain(factor) | tmp
 ' Set sensor amplifier gain, as a multiplier
 '   Valid values: 1, 4, 16, 60
 '   Any other value polls the chip and returns the current setting
-    tmp := $00
+    tmp := 0
     readreg(core#CONTROL, 1, @tmp)
     case factor
         1, 4, 16, 60:
@@ -129,7 +129,7 @@ PUB IntegrationTime(usec) | tmp
 '   42          101ms   15+ bits    (max count: 43008)
 '   64          154ms   16 bits     (max count: 65535)
 '   256         700ms   16 bits     (max count: 65535)
-    tmp := $00
+    tmp := 0
     readreg(core#ATIME, 1, @tmp)
     case usec
         2_400..612_000:
@@ -151,21 +151,21 @@ PUB Interrupt{}
 '   NOTE: An active interrupt will always be visible using Interrupt(),
 '       however, to be visible on the INT pin, IntsEnabled()
 '       must be set to TRUE
-    result := $00
+    result := 0
     readreg(core#STATUS, 1, @result)
-    result := ((result >> core#AINT) & %1) * TRUE
+    result := ((result >> core#AINT) & 1) * TRUE
     return
 
 PUB IntsEnabled(enabled) | tmp
 ' Allow interrupts to assert the INT pin
 '   Valid values: TRUE (-1 or 1), FALSE
 '   Any other value polls the chip and returns the current setting
-    tmp := $00
+    tmp := 0
     readreg(core#ENABLE, 1, @tmp)
     case ||(enabled)
         0, 1: enabled := ||(enabled) << core#AIEN
         other:
-            result := ((tmp >> core#AIEN) & %1) * TRUE
+            result := ((tmp >> core#AIEN) & 1) * TRUE
             return
 
     tmp &= core#AIEN_MASK
@@ -179,7 +179,7 @@ PUB IntThreshold(low, high) | tmp
 '      Low threshold is returned in the least significant word
 '      High threshold is returned in the most significant word
 '   NOTE: This works only with the CLEAR data channel
-    tmp := $00
+    tmp := 0
     readreg(core#AILTL, 4, @tmp)
     case low
         0..65535:
@@ -202,13 +202,13 @@ PUB OpMode(mode) | tmp
 '   Any other value polls the chip and returns the current setting
 ' NOTE: If disabling the sensor, the previously acquired data will remain latched in sensor
 ' (during same power cycle - doesn't survive resets).
-    tmp := $00
+    tmp := 0
     readreg(core#ENABLE, 1, @tmp)
     case mode
         PAUSE, MEASURE:
             mode <<= core#AEN
         other:
-            result := (tmp >> core#AEN) & %1
+            result := (tmp >> core#AEN) & 1
             return
 
     tmp &= core#AEN_MASK
@@ -223,7 +223,7 @@ PUB Persistence(cycles) | tmp
 '           0: Every cycle generates an interrupt, regardless of value
 '           1: Any value outside the threshold generates an interrupt
 '   Any other value polls the chip and returns the current setting
-    tmp := $00
+    tmp := 0
     readreg(core#PERS, 1, @tmp)
     case cycles
         0..3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60:
@@ -241,12 +241,12 @@ PUB Powered(enabled) | tmp
 ' Enable power to the sensor
 '   Valid values: TRUE (-1 or 1), FALSE
 '   Any other value polls the chip and returns the current setting
-    tmp := $00
+    tmp := 0
     readreg(core#ENABLE, 1, @tmp)
     case ||(enabled)
         0, 1: enabled := ||(enabled) << core#PON
         other:
-            result := ((tmp >> core#PON) & %1) * TRUE
+            result := ((tmp >> core#PON) & 1) * TRUE
             return
 
     tmp &= core#PON_MASK
@@ -272,7 +272,7 @@ PUB WaitTime(cycles) | tmp
 '   unless long waits are enabled (WaitLongEnabled(TRUE))
 '   then the wait times are 12x longer
 '   Any other value polls the chip and returns the current setting
-    tmp := $00
+    tmp := 0
     readreg(core#WTIME, 1, @tmp)
     case cycles
         1..256:
@@ -289,12 +289,12 @@ PUB WaitTimer(enabled) | tmp
 '   NOTE: Used for power management - allows sensor to wait in between
 '       acquisition cycles. If enabled, use WaitTime() to specify
 '       number of cycles.
-    tmp := $00
+    tmp := 0
     readreg(core#ENABLE, 1, @tmp)
     case ||(enabled)
         0, 1: enabled := ||(enabled) << core#WEN
         other:
-            result := ((tmp >> core#WEN) & %1) * TRUE
+            result := ((tmp >> core#WEN) & 1) * TRUE
             return
 
     tmp &= core#WEN_MASK
@@ -307,14 +307,14 @@ PUB WaitLongTimer(enabled) | tmp
 '   Valid values: FALSE, TRUE or 1
 '   Any other value polls the chip and returns the current setting
 ' XXX Investigate merging this functionality with WaitTimer to simplify use
-    tmp := $00
+    tmp := 0
     readreg(core#CONFIG, 1, @tmp)
     case ||(enabled)
         0, 1:
             enabled := (||(enabled)) << core#WLONG
         other:
             result := (tmp >> core#WLONG)
-            result := (result & %1) * TRUE
+            result := (result & 1) * TRUE
             return
 
 
