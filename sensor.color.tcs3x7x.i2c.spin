@@ -78,6 +78,12 @@ PUB Defaults{}
     waitlongtimer(FALSE)
     gain(1)
 
+PUB Defaults_Measure{}
+' Factory defaults, but enable measurements
+    defaults{}
+    powered(true)
+    opmode(MEASURE)
+
 PUB DataReady{}: flag
 ' Flag indicating new RGBC data sample ready
 '   Returns TRUE if so, FALSE if not
