@@ -5,7 +5,7 @@
     Description: Demo of the TCS3x7x driver
     Copyright (c) 2020
     Started: Jun 24, 2018
-    Updated: Dec 21, 2020
+    Updated: Dec 23, 2020
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -25,6 +25,7 @@ CON
 
 ' I/O Pin connected to the (optional) on-board white LED
     WHITE_LED_PIN   = 25
+    LED_ENABLED     = TRUE
 ' --
 
 OBJ
@@ -35,38 +36,26 @@ OBJ
     io  : "io"
     rgb : "sensor.color.tcs3x7x.i2c"
 
-VAR
-
-    byte _led_enabled
-
-PUB Main{} | rgbc_data[2], rdata, gdata, bdata, cdata, cmax, i, int, thr, rrow, grow, brow, crow, range
+PUB Main{}
 
     setup{}
 
-    _led_enabled := TRUE
-
-    ser.hidecursor{}
-
     repeat
-        rgb.opmode(rgb#MEASURE)
-        if _led_enabled                         ' if LED is enabled,
+        rgb.opmode(rgb#RUN)
+        if LED_ENABLED                          ' if LED is enabled,
             io.high(WHITE_LED_PIN)              '   illuminate the sample
         repeat until rgb.dataready{}            ' wait for new sensor data
-        rgb.rgbcdata(@rgbc_data)
-        rgb.opmode(rgb#PAUSE)                   ' pause sensor while processing
-        if _led_enabled
+        rgb.opmode(rgb#STDBY)                   ' pause sensor while processing
+        if LED_ENABLED
             io.low(WHITE_LED_PIN)
 
-        cdata := ((rgbc_data.byte[1] << 8) | rgbc_data.byte[0]) & $FFFF
-        rdata := ((rgbc_data.byte[3] << 8) | rgbc_data.byte[2]) & $FFFF
-        gdata := ((rgbc_data.byte[5] << 8) | rgbc_data.byte[4]) & $FFFF
-        bdata := ((rgbc_data.byte[7] << 8) | rgbc_data.byte[6]) & $FFFF
+        rgb.measure{}
 
         ser.position(0, 3)
-        ser.printf1(string("Clear: %x\n"), cdata)
-        ser.printf1(string("Red:   %x\n"), rdata)
-        ser.printf1(string("Green: %x\n"), gdata)
-        ser.printf1(string("Blue:  %x\n"), bdata)
+        ser.printf1(string("Clear: %x\n"), rgb.lastclear{})
+        ser.printf1(string("Red:   %x\n"), rgb.lastred{})
+        ser.printf1(string("Green: %x\n"), rgb.lastgreen{})
+        ser.printf1(string("Blue:  %x\n"), rgb.lastblue{})
 
 PUB Setup{}
 
@@ -83,7 +72,7 @@ PUB Setup{}
     else
         ser.strln(string("TCS3X7X driver failed to start - halting"))
         rgb.stop{}
-        time.msleep (500)
+        time.msleep(500)
         ser.stop{}
         repeat
 

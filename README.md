@@ -7,7 +7,7 @@ This is a P8X32A/Propeller 1, P2X8C4M64P/Propeller 2 driver object for AMS's (fo
 
 ## Salient Features
 
-* I2C connection at up to 400kHz (P1), _TBD_ (P2)
+* I2C connection at up to 400kHz
 * Adjustable sensor gain
 * Optional interrupts (set thresholds, set persistence filter)
 * Power management through sensor's built-in wait timer
@@ -24,11 +24,12 @@ P2/SPIN2:
 
 Optional:
 * 3rd I/O pin for a white LED used to illuminate sample
+* 4th I/O pin for reading interrupt pin state
 
 ## Compiler Compatibility
 
 * P1/SPIN1: OpenSpin (tested with 1.00.81)
-* P2/SPIN2: FastSpin (tested with 4.1.10-beta)
+* P2/SPIN2: FlexSpin (tested with 5.0.0)
 * ~~BST~~ (incompatible - no preprocessor)
 * ~~Propeller Tool~~ (incompatible - no preprocessor)
 * ~~PNut~~ (incompatible - no preprocessor)

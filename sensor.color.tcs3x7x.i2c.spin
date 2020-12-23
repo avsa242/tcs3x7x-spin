@@ -5,7 +5,7 @@
     Description: Driver for the TAOS TCS3x7x RGB color sensor
     Copyright (c) 2020
     Started: Jun 24, 2018
-    Updated: Dec 21, 2020
+    Updated: Dec 23, 2020
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -31,14 +31,23 @@ CON
     GAIN_HI         = 60
 
 ' Operating modes
-    PAUSE           = 0
-    MEASURE         = 1
+    STDBY           = 0
+    RUN             = 1
+
+    CLEAR           = 0
+    RED             = 1
+    GREEN           = 2
+    BLUE            = 3
 
 OBJ
 
     core  : "core.con.tcs3x7x"
     i2c   : "com.i2c"
     time  : "time"
+
+VAR
+
+    word _crgb[4]
 
 PUB Null{}
 ' This is not a top-level object
@@ -61,7 +70,7 @@ PUB Startx(SCL_PIN, SDA_PIN, I2C_HZ): okay
 
 PUB Stop{}
 
-    opmode(PAUSE)
+    opmode(STDBY)
     powered(FALSE)
     i2c.terminate{}
 
@@ -69,7 +78,7 @@ PUB Defaults{}
 ' Factory defaults
     intsenabled(FALSE)
     waittimer(FALSE)
-    opmode(PAUSE)
+    opmode(STDBY)
     powered(FALSE)
     integrationtime(2_400)
     waittime(2_400)
@@ -82,7 +91,15 @@ PUB Defaults_Measure{}
 ' Factory defaults, but enable measurements
     defaults{}
     powered(true)
-    opmode(MEASURE)
+    opmode(RUN)
+
+PUB BlueData{}: bdata
+' Live blue-channel data
+    readreg(core#BDATAL, 2, @bdata)
+
+PUB ClearData{}: bdata
+' Live clear-channel data
+    readreg(core#BDATAL, 2, @bdata)
 
 PUB DataReady{}: flag
 ' Flag indicating new RGBC data sample ready
@@ -114,6 +131,10 @@ PUB Gain(factor): curr_gain
 
     factor &= core#CONTROL_MASK
     writereg(core#CONTROL, 1, factor)
+
+PUB GreenData{}: gdata
+' Live green-channel data
+    readreg(core#GDATAL, 2, @gdata)
 
 PUB IntClear{}
 ' Clears an asserted interrupt
@@ -198,18 +219,47 @@ PUB IntThreshold(low, high): curr_thr | tmp
 
     writereg(core#AILTL, 4, tmp)
 
+PUB LastBlue{}: bword
+' Last blue channel data
+'   NOTE: Call Measure() to update data
+    return _crgb[BLUE]
+
+PUB LastClear{}: cword
+' Last clear channel data
+'   NOTE: Call Measure() to update data
+    return _crgb[CLEAR]
+
+PUB LastGreen{}: gword
+' Last green channel data
+'   NOTE: Call Measure() to update data
+    return _crgb[GREEN]
+
+PUB LastRed{}: rword
+' Last red channel data
+'   NOTE: Call Measure() to update data
+    return _crgb[RED]
+
+PUB LastRGBCPtr{}
+' Returns pointer to last RGBC data
+'   NOTE: Call Measure() to update data
+    return @_crgb
+
+PUB Measure{}
+' Perform measurement
+    readreg(core#CDATAL, 8, @_crgb)
+
 PUB OpMode(mode): curr_mode
 ' Set sensor operating mode
 '   Valid values:
-'       PAUSE (0): Pause measurement
-'       MEASURE (1): Continuous measurement
+'       STDBY (0): Standby (ADCs deactivated)
+'       RUN (1): Active (ADCs active)
 '   Any other value polls the chip and returns the current setting
 ' NOTE: If disabling the sensor, the previously acquired data will remain latched in sensor
 ' (during same power cycle - doesn't survive resets).
     curr_mode := 0
     readreg(core#ENABLE, 1, @curr_mode)
     case mode
-        PAUSE, MEASURE:
+        STDBY, RUN:
             mode <<= core#AEN
         other:
             return (curr_mode >> core#AEN) & 1
@@ -258,6 +308,10 @@ PUB Powered(state): curr_state
     if state
         time.usleep(2400)                       'Wait 2.4ms per datasheet p.15
 
+PUB RedData{}: rdata
+' Live red-channel data
+    readreg(core#RDATAL, 2, @rdata)
+
 PUB RGBCData(ptr_buff)
 ' Get sensor data into ptr_buff
 '   Data format:
@@ -265,8 +319,10 @@ PUB RGBCData(ptr_buff)
 '       WORD 1: Red channel
 '       WORD 2: Green channel
 '       WORD 3: Blue channel
-' IMPORTANT: This buffer needs to be 4 words in length
-    readreg(core#CDATAL, 8, ptr_buff)
+'   NOTE: This buffer must be at least 4 words in length
+'   NOTE: This method also updates data retrievable with Last*() methods
+    readreg(core#CDATAL, 8, @_crgb)
+    wordmove(ptr_buff, @_crgb, 4)
 
 PUB WaitTime(cycles): curr_cyc
 ' Wait time, in cycles (see WaitTimer)
