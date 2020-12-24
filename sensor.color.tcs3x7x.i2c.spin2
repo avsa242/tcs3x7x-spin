@@ -179,13 +179,13 @@ PUB IntsEnabled(state=-2): curr_state
     curr_state := 0
     readreg(core.ENABLE, 1, @curr_state)
     case abs(state)
-        0, 1: state := abs(state) << core.AIEN
+        0, 1:
+            state := abs(state) << core.AIEN
         other:
             return ((curr_state >> core.AIEN) & 1) == 1
 
-    curr_state &= core.AIEN_MASK
-    curr_state := (curr_state | state) & core.ENABLE_MASK
-    writereg(core.ENABLE, 1, @curr_state)
+    state := ((curr_state & core.AIEN_MASK) | state) & core.ENABLE_MASK
+    writereg(core.ENABLE, 1, @state)
 
 PUB IntThreshold(low, high): curr_thr | tmp
 ' Sets low and high thresholds for triggering an interrupt
@@ -254,8 +254,7 @@ PUB OpMode(mode=-2): curr_mode
         other:
             return (curr_mode >> core.AEN) & 1
 
-    curr_mode &= core.AEN_MASK
-    curr_mode := (curr_mode | mode) & core.ENABLE_MASK
+    mode := ((curr_mode & core.AEN_MASK) | mode) & core.ENABLE_MASK
     writereg(core.ENABLE, 1, @curr_mode)
 
 PUB Persistence(cycles=-2): curr_cyc
@@ -287,13 +286,13 @@ PUB Powered(state=-2): curr_state
     curr_state := 0
     readreg(core.ENABLE, 1, @curr_state)
     case abs(state)
-        0, 1: state := abs(state) << core.PON
+        0, 1:
+            state := abs(state) & 1
         other:
-            return ((curr_state >> core.PON) & 1) == 1
+            return ((curr_state & 1) == 1)
 
-    curr_state &= core#PON_MASK
-    curr_state := (curr_state | state) & core#ENABLE_MASK
-    writereg(core.ENABLE, 1, @curr_state)
+    state := ((curr_state & core.PON_MASK) | state) & core.ENABLE_MASK
+    writereg(core.ENABLE, 1, @state)
     if state
         waitus(2400)                       'Wait 2.4ms per datasheet p.15
 
@@ -343,9 +342,8 @@ PUB WaitTimer(state=-2): curr_state
         other:
             return ((curr_state >> core.WEN) & 1) == 1
 
-    tmp &= core.WEN_MASK
-    tmp := (tmp | enabled) & core.ENABLE_MASK
-    writereg(core.ENABLE, 1, state)
+    state := ((curr_state & core.WEN_MASK) | state) & core.ENABLE_MASK
+    writereg(core.ENABLE, 1, @state)
 
 PUB WaitLongTimer(state=-2): curr_state
 ' Enable longer wait time cycles

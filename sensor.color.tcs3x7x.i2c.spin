@@ -185,13 +185,13 @@ PUB IntsEnabled(state): curr_state
     curr_state := 0
     readreg(core#ENABLE, 1, @curr_state)
     case ||(state)
-        0, 1: state := ||(state) << core#AIEN
+        0, 1:
+            state := ||(state) << core#AIEN
         other:
             return ((curr_state >> core#AIEN) & 1) == 1
 
-    curr_state &= core#AIEN_MASK
-    curr_state := (curr_state | state) & core#ENABLE_MASK
-    writereg(core#ENABLE, 1, @curr_state)
+    state := ((curr_state & core#AIEN_MASK) | state) & core#ENABLE_MASK
+    writereg(core#ENABLE, 1, @state)
 
 PUB IntThreshold(low, high): curr_thr | tmp
 ' Sets low and high thresholds for triggering an interrupt
@@ -260,9 +260,8 @@ PUB OpMode(mode): curr_mode
         other:
             return (curr_mode >> core#AEN) & 1
 
-    curr_mode &= core#AEN_MASK
-    curr_mode := (curr_mode | mode) & core#ENABLE_MASK
-    writereg(core#ENABLE, 1, @curr_mode)
+    mode := ((curr_mode & core#AEN_MASK) | mode) & core#ENABLE_MASK
+    writereg(core#ENABLE, 1, @mode)
 
 PUB Persistence(cycles): curr_cyc
 ' Set number of consecutive cycles necessary to generate an interrupt
@@ -293,13 +292,13 @@ PUB Powered(state): curr_state
     curr_state := 0
     readreg(core#ENABLE, 1, @curr_state)
     case ||(state)
-        0, 1: state := ||(state) << core#PON
+        0, 1:
+            state := ||(state) & 1
         other:
-            return ((curr_state >> core#PON) & 1) == 1
+            return ((curr_state & 1) == 1)
 
-    curr_state &= core#PON_MASK
-    curr_state := (curr_state | state) & core#ENABLE_MASK
-    writereg(core#ENABLE, 1, @curr_state)
+    state := ((curr_state & core#PON_MASK) | state) & core#ENABLE_MASK
+    writereg(core#ENABLE, 1, @state)
 
     if state
         time.usleep(2400)                       'Wait 2.4ms per datasheet p.15
@@ -350,9 +349,8 @@ PUB WaitTimer(state): curr_state
         other:
             return ((curr_state >> core#WEN) & 1) == 1
 
-    curr_state &= core#WEN_MASK
-    curr_state := (curr_state | state) & core#ENABLE_MASK
-    writereg(core#ENABLE, 1, @curr_state)
+    state := ((curr_state & core#WEN_MASK) | state) & core#ENABLE_MASK
+    writereg(core#ENABLE, 1, @state)
 
 PUB WaitLongTimer(state): curr_state
 ' Enable longer wait time cycles
@@ -364,7 +362,7 @@ PUB WaitLongTimer(state): curr_state
     readreg(core#CONFIG, 1, @curr_state)
     case ||(state)
         0, 1:
-            state := (||(state)) << core#WLONG
+            state := ||(state) << core#WLONG
         other:
             return ((curr_state >> core#WLONG) & 1) == 1
 
