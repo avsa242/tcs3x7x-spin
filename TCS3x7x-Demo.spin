@@ -5,7 +5,7 @@
     Description: Demo of the TCS3x7x driver
     Copyright (c) 2020
     Started: Jun 24, 2018
-    Updated: Dec 23, 2020
+    Updated: Dec 24, 2020
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -24,8 +24,8 @@ CON
     I2C_HZ          = 400_000
 
 ' I/O Pin connected to the (optional) on-board white LED
-    WHITE_LED_PIN   = 25
     LED_ENABLED     = TRUE
+    WHITE_LED_PIN   = 25
 ' --
 
 OBJ
@@ -59,8 +59,9 @@ PUB Main{}
 
 PUB Setup{}
 
-    io.output(WHITE_LED_PIN)                    ' turn off the LED, initially
-    io.low(WHITE_LED_PIN)
+    if LED_ENABLED
+        io.output(WHITE_LED_PIN)                ' turn off the LED, initially
+        io.low(WHITE_LED_PIN)
 
     ser.start(SER_BAUD)
     time.msleep(30)

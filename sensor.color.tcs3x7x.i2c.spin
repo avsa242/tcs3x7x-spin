@@ -5,7 +5,7 @@
     Description: Driver for the TAOS TCS3x7x RGB color sensor
     Copyright (c) 2020
     Started: Jun 24, 2018
-    Updated: Dec 23, 2020
+    Updated: Dec 24, 2020
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -19,10 +19,6 @@ CON
     DEF_SDA         = 29
     DEF_HZ          = 100_000
     I2C_MAX_FREQ    = core#I2C_MAX_FREQ
-
-    CMD_BYTE        = (core#CMD | core#TYPE_BYTE) << 8 | SLAVE_WR
-    CMD_BLOCK       = (core#CMD | core#TYPE_BLOCK) << 8 | SLAVE_WR
-    CMD_SF          = (core#CMD | core#TYPE_SPECIAL) << 8 | SLAVE_WR
 
 ' Some symbolic constants that can be used with the Gain method
     GAIN_DEF        = 1
@@ -130,7 +126,7 @@ PUB Gain(factor): curr_gain
             return lookupz(curr_gain: 1, 4, 16, 60)
 
     factor &= core#CONTROL_MASK
-    writereg(core#CONTROL, 1, factor)
+    writereg(core#CONTROL, 1, @factor)
 
 PUB GreenData{}: gdata
 ' Live green-channel data
@@ -140,7 +136,7 @@ PUB IntClear{}
 ' Clears an asserted interrupt
 ' NOTE: This clears an active interrupt asserting the INT pin, as well as
 '   the flag readable using the Interrupt() method
-    writereg(core#SF_CLR_INT_CLR, 0, 0)
+    writereg(core#CMD_CLR_INT, 0, 0)
 
 PUB IntegrationTime(usec): curr_itime
 ' Set sensor integration time, in microseconds
@@ -170,7 +166,7 @@ PUB IntegrationTime(usec): curr_itime
                 $00:
                     curr_itime := 700_000
             return
-    writereg(core#ATIME, 1, usec)
+    writereg(core#ATIME, 1, @usec)
 
 PUB Interrupt{}: flag
 ' Flag indicating an interrupt has been triggered
@@ -195,7 +191,7 @@ PUB IntsEnabled(state): curr_state
 
     curr_state &= core#AIEN_MASK
     curr_state := (curr_state | state) & core#ENABLE_MASK
-    writereg(core#ENABLE, 1, curr_state)
+    writereg(core#ENABLE, 1, @curr_state)
 
 PUB IntThreshold(low, high): curr_thr | tmp
 ' Sets low and high thresholds for triggering an interrupt
@@ -217,7 +213,7 @@ PUB IntThreshold(low, high): curr_thr | tmp
         other:
             return curr_thr
 
-    writereg(core#AILTL, 4, tmp)
+    writereg(core#AILTL, 4, @tmp)
 
 PUB LastBlue{}: bword
 ' Last blue channel data
@@ -239,7 +235,7 @@ PUB LastRed{}: rword
 '   NOTE: Call Measure() to update data
     return _crgb[RED]
 
-PUB LastRGBCPtr{}
+PUB LastRGBCPtr{}: ptr
 ' Returns pointer to last RGBC data
 '   NOTE: Call Measure() to update data
     return @_crgb
@@ -266,7 +262,7 @@ PUB OpMode(mode): curr_mode
 
     curr_mode &= core#AEN_MASK
     curr_mode := (curr_mode | mode) & core#ENABLE_MASK
-    writereg(core#ENABLE, 1, curr_mode)
+    writereg(core#ENABLE, 1, @curr_mode)
 
 PUB Persistence(cycles): curr_cyc
 ' Set number of consecutive cycles necessary to generate an interrupt
@@ -288,7 +284,7 @@ PUB Persistence(cycles): curr_cyc
 }           40, 45, 50, 55, 60)
 
     curr_cyc &= core#PERS_MASK
-    writereg(core#PERS, 1, cycles)
+    writereg(core#PERS, 1, @cycles)
 
 PUB Powered(state): curr_state
 ' Enable power to the sensor
@@ -303,7 +299,7 @@ PUB Powered(state): curr_state
 
     curr_state &= core#PON_MASK
     curr_state := (curr_state | state) & core#ENABLE_MASK
-    writereg(core#ENABLE, 1, curr_state)
+    writereg(core#ENABLE, 1, @curr_state)
 
     if state
         time.usleep(2400)                       'Wait 2.4ms per datasheet p.15
@@ -338,7 +334,7 @@ PUB WaitTime(cycles): curr_cyc
         other:
             return 256-curr_cyc
 
-    writereg(core#WTIME, 1, cycles)
+    writereg(core#WTIME, 1, @cycles)
 
 PUB WaitTimer(state): curr_state
 ' Enable sensor wait timer
@@ -356,9 +352,9 @@ PUB WaitTimer(state): curr_state
 
     curr_state &= core#WEN_MASK
     curr_state := (curr_state | state) & core#ENABLE_MASK
-    writereg(core#ENABLE, 1, curr_state)
+    writereg(core#ENABLE, 1, @curr_state)
 
-PUB WaitLongTimer(state) | curr_state
+PUB WaitLongTimer(state): curr_state
 ' Enable longer wait time cycles
 '   If state, wait cycles set using the SetWaitTime method are increased by a factor of 12x
 '   Valid values: FALSE, TRUE or 1
@@ -373,50 +369,56 @@ PUB WaitLongTimer(state) | curr_state
             return ((curr_state >> core#WLONG) & 1) == 1
 
     state &= core#CONFIG_MASK
-    writereg(core#CONFIG, 1, state)
+    writereg(core#CONFIG, 1, @state)
 
-PRI readReg(reg_nr, nr_bytes, ptr_buff) | cmd_pkt
+PRI readReg(reg_nr, nr_bytes, ptr_buff) | cmd_pkt, tmp
 ' Read nr_bytes from device into ptr_buff
-    case nr_bytes
-        0:
-            return
-        1:
-            cmd_pkt.word[0] := CMD_BYTE | (reg_nr << 8)
-        other:
-            cmd_pkt.word[0] := CMD_BLOCK | (reg_nr << 8)
-
+    cmd_pkt.byte[0] := SLAVE_WR
+    case reg_nr
+        core#ENABLE, core#ATIME, core#WTIME..core#AIHTH, core#PERS,{
+       }core#CONFIG, core#CONTROL, core#DEVID..core#BDATAH:
+            case nr_bytes
+                1:                              ' single-byte xfer
+                    cmd_pkt.byte[1] := core#CMD_BYTE | reg_nr
+                2..4, 8:                        ' multi-byte xfer
+                    cmd_pkt.byte[1] := core#CMD_BLOCK | reg_nr
+                other:                          ' invalid
+                    return
     i2c.start{}
-    i2c.wr_block(@cmd_pkt, 2)
+    repeat tmp from 0 to 1
+        i2c.write(cmd_pkt.byte[tmp])
 
     i2c.start{}
     i2c.write(SLAVE_RD)
-    i2c.rd_block(ptr_buff, nr_bytes, TRUE)
+    repeat tmp from 0 to nr_bytes-1
+        byte[ptr_buff][tmp] := i2c.read(tmp == nr_bytes-1)
     i2c.stop{}
 
-PRI writeReg(reg_nr, nr_bytes, val) | cmd_pkt[2]
-' Write nr_nr_bytes in val to device
-    case nr_bytes
-        0:
-            cmd_pkt.word[0] := CMD_SF | (reg_nr << 8)
-            nr_bytes := val := 0
-        1:
-            cmd_pkt.word[0] := CMD_BYTE | (reg_nr << 8)
-            cmd_pkt.byte[2] := val
-        2:
-            cmd_pkt.word[0] := CMD_BLOCK | (reg_nr << 8)
-            cmd_pkt.word[1] := val
-        4:
-            cmd_pkt.word[0] := CMD_BLOCK | (reg_nr << 8)
-            cmd_pkt.word[1] := val.word[0]
-            cmd_pkt.word[2] := val.word[1]
-
-        other:
-            return
-
-    i2c.start{}
-    i2c.wr_block(@cmd_pkt, nr_bytes + 2)
-    i2c.stop{}
-
+PUB writeReg(reg_nr, nr_bytes, ptr_buff) | cmd_pkt, tmp
+' Write nr_bytes from ptr_buff to device
+    cmd_pkt.byte[0] := SLAVE_WR
+    case reg_nr
+        core#ENABLE, core#ATIME, core#WTIME..core#AIHTH, core#PERS,{
+       }core#CONFIG, core#CONTROL:              ' commands/regs
+            case nr_bytes
+                1:                              ' single-byte xfer
+                    cmd_pkt.byte[1] := core#CMD_BYTE | reg_nr
+                2..4:                           ' multi-byte xfer
+                    cmd_pkt.byte[1] := core#CMD_BLOCK | reg_nr
+                other:
+                    return                      ' invalid
+            i2c.start{}
+            repeat tmp from 0 to 1
+                i2c.write(cmd_pkt.byte[tmp])
+            repeat tmp from 0 to nr_bytes-1
+                i2c.write(byte[ptr_buff][tmp])
+            i2c.stop{}
+        core#CMD_CLR_INT:                       ' special: clear interrupt
+            cmd_pkt.byte[1] := reg_nr
+            i2c.start{}
+            repeat tmp from 0 to 1
+                i2c.write(cmd_pkt.byte[tmp])
+            i2c.stop{}
 DAT
 {
     --------------------------------------------------------------------------------------------------------

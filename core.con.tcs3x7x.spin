@@ -5,7 +5,7 @@
     Description: Low-level constants
     Copyright (c) 2020
     Started: Jun 24, 2018
-    Updated: Dec 21, 2020
+    Updated: Dec 24, 2020
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -23,11 +23,10 @@ CON
 ' CMD   TYPE        ADDR (REG)/SF
 
     CMD                 = $80
-        TYPE            = 5
-        TYPE_BYTE       = %00 << TYPE  ' read single register
-        TYPE_BLOCK      = %01 << TYPE  ' read multiple sequential registers
-        TYPE_SPECIAL    = %11 << TYPE  ' Special Function
-        SF_CLR_INT_CLR  = %00110
+    CMD_BYTE            = CMD | %00_00000
+    CMD_BLOCK           = CMD | %01_00000
+    CMD_SPECIAL         = CMD | %11_00000
+    CMD_CLR_INT         = CMD_SPECIAL | %00110
 
     ENABLE              = $00
     ENABLE_MASK         = $1B
