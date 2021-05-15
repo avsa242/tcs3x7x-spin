@@ -3,9 +3,9 @@
     Filename: sensor.color.tcs3x7x.i2c.spin
     Author: Jesse Burt
     Description: Driver for the TAOS TCS3x7x RGB color sensor
-    Copyright (c) 2020
+    Copyright (c) 2021
     Started: Jun 24, 2018
-    Updated: Dec 24, 2020
+    Updated: May 15, 2021
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -91,11 +91,15 @@ PUB Defaults_Measure{}
 
 PUB BlueData{}: bdata
 ' Live blue-channel data
+'   NOTE: This method also updates data retrievable with LastBlue() method
     readreg(core#BDATAL, 2, @bdata)
+    _crgb[BLUE] := bdata
 
-PUB ClearData{}: bdata
+PUB ClearData{}: cdata
 ' Live clear-channel data
-    readreg(core#BDATAL, 2, @bdata)
+'   NOTE: This method also updates data retrievable with LastClear() method
+    readreg(core#CDATAL, 2, @cdata)
+    _crgb[CLEAR] := cdata
 
 PUB DataReady{}: flag
 ' Flag indicating new RGBC data sample ready
@@ -130,7 +134,9 @@ PUB Gain(factor): curr_gain
 
 PUB GreenData{}: gdata
 ' Live green-channel data
+'   NOTE: This method also updates data retrievable with LastGreen() method
     readreg(core#GDATAL, 2, @gdata)
+    _crgb[GREEN] := gdata
 
 PUB IntClear{}
 ' Clears an asserted interrupt
@@ -305,7 +311,9 @@ PUB Powered(state): curr_state
 
 PUB RedData{}: rdata
 ' Live red-channel data
+'   NOTE: This method also updates data retrievable with LastRed() method
     readreg(core#RDATAL, 2, @rdata)
+    _crgb[RED] := rdata
 
 PUB RGBCData(ptr_buff)
 ' Get sensor data into ptr_buff
