@@ -5,7 +5,7 @@
     Description: Demo of the TCS3x7x driver
     Copyright (c) 2021
     Started: Jun 24, 2018
-    Updated: May 15, 2021
+    Updated: Jul 20, 2021
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -19,8 +19,8 @@ CON
     LED             = cfg#LED1
     SER_BAUD        = 115_200
 
-    I2C_SCL         = 26
-    I2C_SDA         = 27
+    I2C_SCL         = 28
+    I2C_SDA         = 29
     I2C_HZ          = 400_000
 
 ' I/O Pin connected to the (optional) on-board white LED
