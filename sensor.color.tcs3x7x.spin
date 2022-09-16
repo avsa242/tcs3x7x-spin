@@ -1,11 +1,11 @@
 {
     --------------------------------------------
-    Filename: sensor.color.tcs3x7x.i2c.spin
+    Filename: sensor.color.tcs3x7x.spin
     Author: Jesse Burt
-    Description: Driver for the TAOS TCS3x7x RGB color sensor
+    Description: Driver for the AMS (nee TAOS) TCS3x7x RGB color sensor
     Copyright (c) 2022
     Started: Jun 24, 2018
-    Updated: Jul 10, 2022
+    Updated: Sep 16, 2022
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -20,16 +20,17 @@ CON
     DEF_HZ          = 100_000
     I2C_MAX_FREQ    = core#I2C_MAX_FREQ
 
-' Some symbolic constants that can be used with the Gain method
+    { gain() settings }
     GAIN_DEF        = 1
     GAIN_LOW        = 4
     GAIN_MED        = 16
     GAIN_HI         = 60
 
-' Operating modes
+    { opmode() modes }
     STDBY           = 0
     RUN             = 1
 
+    { color sensing channels }
     CLEAR           = 0
     RED             = 1
     GREEN           = 2
@@ -43,21 +44,21 @@ OBJ
 #else
     i2c : "com.i2c"                             ' PASM I2C engine
 #endif
-    core  : "core.con.tcs3x7x"
-    time  : "time"
+    core: "core.con.tcs3x7x"                    ' HW-specific constants
+    time: "time"                                ' time delay methods
 
 VAR
 
     word _crgb[4]
 
-PUB Null{}
+PUB null{}
 ' This is not a top-level object
 
-PUB Start{}: status
+PUB start{}: status
 ' Start using "standard" Propeller I2C pins and 100kHz
     return startx(DEF_SCL, DEF_SDA, DEF_HZ)
 
-PUB Startx(SCL_PIN, SDA_PIN, I2C_HZ): status
+PUB startx(SCL_PIN, SDA_PIN, I2C_HZ): status
 ' Start using custom settings
     if lookdown(SCL_PIN: 0..31) and lookdown(SDA_PIN: 0..31) and {
 }   I2C_HZ =< core#I2C_MAX_FREQ
@@ -72,13 +73,14 @@ PUB Startx(SCL_PIN, SDA_PIN, I2C_HZ): status
     ' Lastly - make sure you have at least one free core/cog
     return FALSE
 
-PUB Stop{}
-
+PUB stop{}
+' Stop the driver
     opmode(STDBY)
     powered(FALSE)
     i2c.deinit{}
+    wordfill(@_crgb, 0, 4)
 
-PUB Defaults{}
+PUB defaults{}
 ' Factory defaults
     intsenabled(FALSE)
     waittimer(FALSE)
@@ -91,32 +93,32 @@ PUB Defaults{}
     waitlongtimer(FALSE)
     gain(1)
 
-PUB Preset_Active{}
+PUB preset_active{}
 ' Like Defaults(), but enable measurements
     defaults{}
     powered(true)
     opmode(RUN)
 
-PUB BlueData{}: bdata
+PUB bluedata{}: bdata
 ' Live blue-channel data
 '   NOTE: This method also updates data retrievable with LastBlue() method
     readreg(core#BDATAL, 2, @bdata)
     _crgb[BLUE] := bdata
 
-PUB ClearData{}: cdata
+PUB cleardata{}: cdata
 ' Live clear-channel data
 '   NOTE: This method also updates data retrievable with LastClear() method
     readreg(core#CDATAL, 2, @cdata)
     _crgb[CLEAR] := cdata
 
-PUB DataReady{}: flag
+PUB dataready{}: flag
 ' Flag indicating new RGBC data sample ready
 '   Returns TRUE if so, FALSE if not
     flag := 0
     readreg(core#STATUS, 1, @flag)
     return ((flag & 1) == 1)
 
-PUB DeviceID{}: id
+PUB deviceid{}: id
 ' Read device ID
 '   Returns:
 '       $44: TCS34721 and TCS34725
@@ -124,7 +126,7 @@ PUB DeviceID{}: id
     id := 0
     readreg(core#DEVID, 1, @id)
 
-PUB Gain(factor): curr_gain
+PUB gain(factor): curr_gain
 ' Set sensor amplifier gain, as a multiplier
 '   Valid values: 1, 4, 16, 60
 '   Any other value polls the chip and returns the current setting
@@ -140,19 +142,19 @@ PUB Gain(factor): curr_gain
     factor &= core#CONTROL_MASK
     writereg(core#CONTROL, 1, @factor)
 
-PUB GreenData{}: gdata
+PUB greendata{}: gdata
 ' Live green-channel data
 '   NOTE: This method also updates data retrievable with LastGreen() method
     readreg(core#GDATAL, 2, @gdata)
     _crgb[GREEN] := gdata
 
-PUB IntClear{}
+PUB intclear{}
 ' Clears an asserted interrupt
 ' NOTE: This clears an active interrupt asserting the INT pin, as well as
 '   the flag readable using the Interrupt() method
     writereg(core#CMD_CLR_INT, 0, 0)
 
-PUB IntegrationTime(usec): curr_itime
+PUB integrationtime(usec): curr_itime
 ' Set sensor integration time, in microseconds
 '   Valid values: 2_400 to 700_000, in multiples of 2_400
 '   Any other value polls the chip and returns the current setting
@@ -182,7 +184,7 @@ PUB IntegrationTime(usec): curr_itime
             return
     writereg(core#ATIME, 1, @usec)
 
-PUB Interrupt{}: flag
+PUB interrupt{}: flag
 ' Flag indicating an interrupt has been triggered
 '   Returns TRUE (-1) or FALSE
 '   NOTE: An active interrupt will always be visible using Interrupt(),
@@ -192,7 +194,7 @@ PUB Interrupt{}: flag
     readreg(core#STATUS, 1, @flag)
     return ((flag >> core#AINT) & 1) == 1
 
-PUB IntsEnabled(state): curr_state
+PUB intsenabled(state): curr_state
 ' Allow interrupts to assert the INT pin
 '   Valid values: TRUE (-1 or 1), FALSE
 '   Any other value polls the chip and returns the current setting
@@ -207,7 +209,7 @@ PUB IntsEnabled(state): curr_state
     state := ((curr_state & core#AIEN_MASK) | state) & core#ENABLE_MASK
     writereg(core#ENABLE, 1, @state)
 
-PUB IntThresh(low, high): curr_thr | tmp
+PUB intthresh(low, high): curr_thr | tmp
 ' Sets low and high thresholds for triggering an interrupt
 '   Valid values: 0..65535 for both low and high thresholds
 '   Any other value polls the chip and returns the current setting
@@ -229,36 +231,36 @@ PUB IntThresh(low, high): curr_thr | tmp
 
     writereg(core#AILTL, 4, @tmp)
 
-PUB LastBlue{}: bword
+PUB lastblue{}: bword
 ' Last blue channel data
 '   NOTE: Call Measure() to update data
     return _crgb[BLUE]
 
-PUB LastClear{}: cword
+PUB lastclear{}: cword
 ' Last clear channel data
 '   NOTE: Call Measure() to update data
     return _crgb[CLEAR]
 
-PUB LastGreen{}: gword
+PUB lastgreen{}: gword
 ' Last green channel data
 '   NOTE: Call Measure() to update data
     return _crgb[GREEN]
 
-PUB LastRed{}: rword
+PUB lastred{}: rword
 ' Last red channel data
 '   NOTE: Call Measure() to update data
     return _crgb[RED]
 
-PUB LastRGBCPtr{}: ptr
+PUB lastrgbcptr{}: ptr
 ' Returns pointer to last RGBC data
 '   NOTE: Call Measure() to update data
     return @_crgb
 
-PUB Measure{}
+PUB measure{}
 ' Perform measurement
     readreg(core#CDATAL, 8, @_crgb)
 
-PUB OpMode(mode): curr_mode
+PUB opmode(mode): curr_mode
 ' Set sensor operating mode
 '   Valid values:
 '       STDBY (0): Standby (ADCs deactivated)
@@ -277,7 +279,7 @@ PUB OpMode(mode): curr_mode
     mode := ((curr_mode & core#AEN_MASK) | mode) & core#ENABLE_MASK
     writereg(core#ENABLE, 1, @mode)
 
-PUB Persistence(cycles): curr_cyc
+PUB persistence(cycles): curr_cyc
 ' Set number of consecutive cycles necessary to generate an interrupt
 '   Valid values:
 '       *0, 1, 2, 3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60
@@ -299,7 +301,7 @@ PUB Persistence(cycles): curr_cyc
     curr_cyc &= core#PERS_MASK
     writereg(core#PERS, 1, @cycles)
 
-PUB Powered(state): curr_state
+PUB powered(state): curr_state
 ' Enable power to the sensor
 '   Valid values: TRUE (-1 or 1), FALSE
 '   Any other value polls the chip and returns the current setting
@@ -317,13 +319,13 @@ PUB Powered(state): curr_state
     if state
         time.usleep(2400)                       'Wait 2.4ms per datasheet p.15
 
-PUB RedData{}: rdata
+PUB reddata{}: rdata
 ' Live red-channel data
 '   NOTE: This method also updates data retrievable with LastRed() method
     readreg(core#RDATAL, 2, @rdata)
     _crgb[RED] := rdata
 
-PUB RGBCData(ptr_buff)
+PUB rgbcdata(ptr_buff)
 ' Get sensor data into ptr_buff
 '   Data format:
 '       WORD 0: Clear channel
@@ -335,7 +337,7 @@ PUB RGBCData(ptr_buff)
     readreg(core#CDATAL, 8, @_crgb)
     wordmove(ptr_buff, @_crgb, 4)
 
-PUB WaitTime(cycles): curr_cyc
+PUB waittime(cycles): curr_cyc
 ' Wait time, in cycles (see WaitTimer)
 '   Each cycle is approx 2.4ms
 '   unless long waits are enabled (WaitLongEnabled(TRUE))
@@ -351,12 +353,12 @@ PUB WaitTime(cycles): curr_cyc
 
     writereg(core#WTIME, 1, @cycles)
 
-PUB WaitTimer(state): curr_state
+PUB waittimer(state): curr_state
 ' Enable sensor wait timer
 '   Valid values: FALSE, TRUE or 1
 '   Any other value polls the chip and returns the current setting
 '   NOTE: Used for power management - allows sensor to wait in between
-'       acquisition cycles. If state, use WaitTime() to specify
+'       acquisition cycles. If enabled, use waittime() to specify
 '       number of cycles.
     curr_state := 0
     readreg(core#ENABLE, 1, @curr_state)
@@ -368,12 +370,11 @@ PUB WaitTimer(state): curr_state
     state := ((curr_state & core#WEN_MASK) | state) & core#ENABLE_MASK
     writereg(core#ENABLE, 1, @state)
 
-PUB WaitLongTimer(state): curr_state
+PUB waitlongtimer(state): curr_state
 ' Enable longer wait time cycles
 '   If state, wait cycles set using the SetWaitTime method are increased by a factor of 12x
 '   Valid values: FALSE, TRUE or 1
 '   Any other value polls the chip and returns the current setting
-' XXX Investigate merging this functionality with WaitTimer to simplify use
     curr_state := 0
     readreg(core#CONFIG, 1, @curr_state)
     case ||(state)
@@ -385,12 +386,12 @@ PUB WaitLongTimer(state): curr_state
     state &= core#CONFIG_MASK
     writereg(core#CONFIG, 1, @state)
 
-PRI readReg(reg_nr, nr_bytes, ptr_buff) | cmd_pkt
+PRI readreg(reg_nr, nr_bytes, ptr_buff) | cmd_pkt
 ' Read nr_bytes from device into ptr_buff
     cmd_pkt.byte[0] := SLAVE_WR
     case reg_nr
         core#ENABLE, core#ATIME, core#WTIME..core#AIHTH, core#PERS,{
-       }core#CONFIG, core#CONTROL, core#DEVID..core#BDATAH:
+}       core#CONFIG, core#CONTROL, core#DEVID..core#BDATAH:
             case nr_bytes
                 1:                              ' single-byte xfer
                     cmd_pkt.byte[1] := core#CMD_BYTE | reg_nr
@@ -406,12 +407,12 @@ PRI readReg(reg_nr, nr_bytes, ptr_buff) | cmd_pkt
     i2c.rdblock_lsbf(ptr_buff, nr_bytes, i2c#NAK)
     i2c.stop{}
 
-PRI writeReg(reg_nr, nr_bytes, ptr_buff) | cmd_pkt
+PRI writereg(reg_nr, nr_bytes, ptr_buff) | cmd_pkt
 ' Write nr_bytes from ptr_buff to device
     cmd_pkt.byte[0] := SLAVE_WR
     case reg_nr
         core#ENABLE, core#ATIME, core#WTIME..core#AIHTH, core#PERS,{
-       }core#CONFIG, core#CONTROL:              ' commands/regs
+}       core#CONFIG, core#CONTROL:              ' commands/regs
             case nr_bytes
                 1:                              ' single-byte xfer
                     cmd_pkt.byte[1] := core#CMD_BYTE | reg_nr
@@ -430,24 +431,21 @@ PRI writeReg(reg_nr, nr_bytes, ptr_buff) | cmd_pkt
             i2c.stop{}
 DAT
 {
-TERMS OF USE: MIT License
+Copyright 2022 Jesse Burt
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+associated documentation files (the "Software"), to deal in the Software without restriction,
+including without limitation the rights to use, copy, modify, merge, publish, distribute,
+sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+The above copyright notice and this permission notice shall be included in all copies or
+substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT
+OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 }
 
