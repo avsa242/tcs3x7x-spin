@@ -1,6 +1,6 @@
 {
     --------------------------------------------
-    Filename: sensor.color.tcs3x7x.spin2
+    Filename: sensor.light.tcs3x7x.spin2
     Author: Jesse Burt
     Description: Driver for the AMS (nee TAOS) TCS3x7x RGB color sensor (P2 version)
     Copyright (c) 2022
