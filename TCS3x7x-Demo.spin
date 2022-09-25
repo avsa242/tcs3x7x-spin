@@ -45,7 +45,7 @@ PUB main{}
         rgb.opmode(rgb#RUN)
         if (LED_ENABLED)                        ' if LED is enabled,
             outa[WHITE_LED_PIN] := 1            '   illuminate the sample
-        repeat until rgb.data_rdy{}             ' wait for new sensor data
+        repeat until rgb.rgbw_data_rdy{}        ' wait for new sensor data
         rgb.opmode(rgb#STDBY)                   ' pause sensor while processing
         if (LED_ENABLED)
             outa[WHITE_LED_PIN] := 0
@@ -53,7 +53,7 @@ PUB main{}
         rgb.measure{}
 
         ser.position(0, 3)
-        ser.printf1(string("Clear: %4.4x\n\r"), rgb.last_clear{})
+        ser.printf1(string("White: %4.4x\n\r"), rgb.last_white{})
         ser.printf1(string("Red:   %4.4x\n\r"), rgb.last_red{})
         ser.printf1(string("Green: %4.4x\n\r"), rgb.last_green{})
         ser.printf1(string("Blue:  %4.4x\n\r"), rgb.last_blue{})
