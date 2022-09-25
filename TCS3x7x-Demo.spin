@@ -5,7 +5,7 @@
     Description: Demo of the TCS3x7x driver
     Copyright (c) 2022
     Started: Jun 24, 2018
-    Updated: Sep 16, 2022
+    Updated: Sep 25, 2022
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -45,7 +45,7 @@ PUB main{}
         rgb.opmode(rgb#RUN)
         if (LED_ENABLED)                        ' if LED is enabled,
             outa[WHITE_LED_PIN] := 1            '   illuminate the sample
-        repeat until rgb.dataready{}            ' wait for new sensor data
+        repeat until rgb.data_rdy{}             ' wait for new sensor data
         rgb.opmode(rgb#STDBY)                   ' pause sensor while processing
         if (LED_ENABLED)
             outa[WHITE_LED_PIN] := 0
@@ -53,10 +53,10 @@ PUB main{}
         rgb.measure{}
 
         ser.position(0, 3)
-        ser.printf1(string("Clear: %4.4x\n\r"), rgb.lastclear{})
-        ser.printf1(string("Red:   %4.4x\n\r"), rgb.lastred{})
-        ser.printf1(string("Green: %4.4x\n\r"), rgb.lastgreen{})
-        ser.printf1(string("Blue:  %4.4x\n\r"), rgb.lastblue{})
+        ser.printf1(string("Clear: %4.4x\n\r"), rgb.last_clear{})
+        ser.printf1(string("Red:   %4.4x\n\r"), rgb.last_red{})
+        ser.printf1(string("Green: %4.4x\n\r"), rgb.last_green{})
+        ser.printf1(string("Blue:  %4.4x\n\r"), rgb.last_blue{})
 
 PUB setup{}
 

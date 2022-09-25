@@ -5,7 +5,7 @@
     Description: Driver for the AMS (nee TAOS) TCS3x7x RGB color sensor (P2 version)
     Copyright (c) 2022
     Started: Jun 24, 2018
-    Updated: Sep 16, 2022
+    Updated: Sep 25, 2022
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -48,13 +48,11 @@ PUB null()
 
 PUB startx(SCL_PIN, SDA_PIN, I2C_HZ=DEF_HZ): status
 ' Start using custom settings
-    if lookdown(SCL_PIN: 0..63) and lookdown(SDA_PIN: 0..63) and {
-}   I2C_HZ <= core.I2C_MAX_FREQ
+    if (lookdown(SCL_PIN: 0..63) and lookdown(SDA_PIN: 0..63) and I2C_HZ <= core.I2C_MAX_FREQ)
         if (status := i2c.init(SCL_PIN, SDA_PIN, I2C_HZ))
             waitms(1)
             if i2c.present(SLAVE_WR)
-                if lookdown(deviceid(): core.DEVID_3472_1_5,{
-}                   core.DEVID_3472_3_7)
+                if (lookdown(dev_id(): core.DEVID_3472_1_5, core.DEVID_3472_3_7))
                     return
     ' if this point is reached, something above failed
     ' Double check I/O pin assignments, connections, power
@@ -70,15 +68,15 @@ PUB stop()
 
 PUB defaults()
 ' Factory defaults
-    intsenabled(FALSE)
-    waittimer(FALSE)
+    int_ena(FALSE)
+    wait_timer(FALSE)
     opmode(STDBY)
     powered(FALSE)
-    integrationtime(2_400)
-    waittime(2_400)
-    intthresh(0, 0)
-    persistence(0)
-    waitlongtimer(FALSE)
+    integration_time(2_400)
+    wait_time(2_400)
+    int_thresh(0, 0)
+    int_duration(0)
+    wait_long_timer(FALSE)
     gain(1)
 
 PUB preset_active()
@@ -87,26 +85,26 @@ PUB preset_active()
     powered(true)
     opmode(RUN)
 
-PUB bluedata(): bdata
+PUB blue_data(): bdata
 ' Live blue-channel data
 '   NOTE: This method also updates data retrievable with LastBlue() method
     readreg(core.BDATAL, 2, @bdata)
     _crgb[BLUE] := bdata
 
-PUB cleardata(): cdata
+PUB clear_data(): cdata
 ' Live clear-channel data
 '   NOTE: This method also updates data retrievable with LastClear() method
     readreg(core.CDATAL, 2, @cdata)
     _crgb[CLEAR] := cdata
 
-PUB dataready(): flag
+PUB data_rdy(): flag
 ' Flag indicating new RGBC data sample ready
 '   Returns TRUE if so, FALSE if not
     flag := 0
     readreg(core.STATUS, 1, @flag)
     return ((flag & 1) == 1)
 
-PUB deviceid(): id
+PUB dev_id(): id
 ' Read device ID
 '   Returns:
 '       $44: TCS34721 and TCS34725
@@ -130,19 +128,19 @@ PUB gain(factor=-2): curr_gain
     factor &= core.CONTROL_MASK
     writereg(core.CONTROL, 1, @factor)
 
-PUB greendata(): gdata
+PUB green_data(): gdata
 ' Live green-channel data
 '   NOTE: This method also updates data retrievable with LastGreen() method
     readreg(core.GDATAL, 2, @gdata)
     _crgb[GREEN] := gdata
 
-PUB intclear()
+PUB int_clr()
 ' Clears an asserted interrupt
 ' NOTE: This clears an active interrupt asserting the INT pin, as well as
 '   the flag readable using the Interrupt() method
     writereg(core.CMD_CLR_INT, 0, 0)
 
-PUB integrationtime(usec=-2): curr_itime
+PUB integration_time(usec=-2): curr_itime
 ' Set sensor integration time, in microseconds
 '   Valid values: 2_400 to 700_000, in multiples of 2_400
 '   Any other value polls the chip and returns the current setting
@@ -182,7 +180,7 @@ PUB interrupt(): flag
     readreg(core.STATUS, 1, @flag)
     return ((flag >> core.AINT) & 1) == 1
 
-PUB intsenabled(state=-2): curr_state
+PUB int_ena(state=-2): curr_state
 ' Allow interrupts to assert the INT pin
 '   Valid values: TRUE (-1 or 1), FALSE
 '   Any other value polls the chip and returns the current setting
@@ -197,7 +195,7 @@ PUB intsenabled(state=-2): curr_state
     state := ((curr_state & core.AIEN_MASK) | state) & core.ENABLE_MASK
     writereg(core.ENABLE, 1, @state)
 
-PUB intthresh(low, high): curr_thr | tmp
+PUB int_thresh(low, high): curr_thr | tmp
 ' Sets low and high thresholds for triggering an interrupt
 '   Valid values: 0..65535 for both low and high thresholds
 '   Any other value polls the chip and returns the current setting
@@ -219,27 +217,27 @@ PUB intthresh(low, high): curr_thr | tmp
 
     writereg(core.AILTL, 4, @tmp)
 
-PUB lastblue(): bword
+PUB last_blue(): bword
 ' Last blue channel data
 '   NOTE: Call Measure() to update data
     return _crgb[BLUE]
 
-PUB lastclear(): cword
+PUB last_clear(): cword
 ' Last clear channel data
 '   NOTE: Call Measure() to update data
     return _crgb[CLEAR]
 
-PUB lastgreen(): gword
+PUB last_green(): gword
 ' Last green channel data
 '   NOTE: Call Measure() to update data
     return _crgb[GREEN]
 
-PUB lastred(): rword
+PUB last_red(): rword
 ' Last red channel data
 '   NOTE: Call Measure() to update data
     return _crgb[RED]
 
-PUB lastrgbcptr(): ptr
+PUB last_rgbc_ptr(): ptr
 ' Returns pointer to last RGBC data
 '   NOTE: Call Measure() to update data
     return @_crgb
@@ -267,7 +265,7 @@ PUB opmode(mode=-2): curr_mode
     mode := ((curr_mode & core.AEN_MASK) | mode) & core.ENABLE_MASK
     writereg(core.ENABLE, 1, @mode)
 
-PUB persistence(cycles=-2): curr_cyc
+PUB int_duration(cycles=-2): curr_cyc
 ' Set number of consecutive cycles necessary to generate an interrupt
 '   Valid values:
 '       *0, 1, 2, 3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60
@@ -306,13 +304,13 @@ PUB powered(state=-2): curr_state
     if state
         waitus(2400)                            'Wait 2.4ms per datasheet p.15
 
-PUB reddata(): rdata
+PUB red_data(): rdata
 ' Live red-channel data
 '   NOTE: This method also updates data retrievable with LastRed() method
     readreg(core.RDATAL, 2, @rdata)
     _crgb[RED] := rdata
 
-PUB rgbcdata(ptr_buff)
+PUB rgbc_data(ptr_buff)
 ' Get sensor data into ptr_buff
 '   Data format:
 '       WORD 0: Clear channel
@@ -324,7 +322,7 @@ PUB rgbcdata(ptr_buff)
     readreg(core.CDATAL, 8, @_crgb)
     wordmove(ptr_buff, @_crgb, 4)
 
-PUB waittime(cycles=-2): curr_cyc
+PUB wait_time(cycles=-2): curr_cyc
 ' Wait time, in cycles (see WaitTimer)
 '   Each cycle is approx 2.4ms
 '   unless long waits are enabled (WaitLongEnabled(TRUE))
@@ -340,7 +338,7 @@ PUB waittime(cycles=-2): curr_cyc
 
     writereg(core.WTIME, 1, @cycles)
 
-PUB waittimer(state=-2): curr_state
+PUB wait_timer(state=-2): curr_state
 ' Enable sensor wait timer
 '   Valid values: FALSE, TRUE or 1
 '   Any other value polls the chip and returns the current setting
@@ -357,7 +355,7 @@ PUB waittimer(state=-2): curr_state
     state := ((curr_state & core.WEN_MASK) | state) & core.ENABLE_MASK
     writereg(core.ENABLE, 1, @state)
 
-PUB waitlongtimer(state=-2): curr_state
+PUB wait_long_timer(state=-2): curr_state
 ' Enable longer wait time cycles
 '   If state, wait cycles set using the SetWaitTime method are increased by a factor of 12x
 '   Valid values: FALSE, TRUE or 1
