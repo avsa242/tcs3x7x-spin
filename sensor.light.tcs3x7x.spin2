@@ -5,7 +5,7 @@
     Description: Driver for the AMS (nee TAOS) TCS3x7x RGB color sensor (P2 version)
     Copyright (c) 2022
     Started: Jun 24, 2018
-    Updated: Sep 25, 2022
+    Updated: Sep 27, 2022
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -127,36 +127,6 @@ PUB int_clr()
 ' NOTE: This clears an active interrupt asserting the INT pin, as well as
 '   the flag readable using the interrupt() method
     writereg(core.CMD_CLR_INT, 0, 0)
-
-PUB integration_time(usec=-2): curr_itime
-' Set sensor integration time, in microseconds
-'   Valid values: 2_400 to 700_000, in multiples of 2_400
-'   Any other value polls the chip and returns the current setting
-'   NOTE: Setting will be rounded, if an even multiple of 2_400 isn't given
-'   NOTE: Max effective resolution achieved with 154_000..700_000
-'   Each cycle is approx 2.4ms (exception: 256 cycles is 700ms)
-'
-'   Cycles      Time    Effective range:
-'   1           2.4ms   10 bits     (max count: 1024)
-'   10          24ms    13+ bits    (max count: 10240)
-'   42          101ms   15+ bits    (max count: 43008)
-'   64          154ms   16 bits     (max count: 65535)
-'   256         700ms   16 bits     (max count: 65535)
-    curr_itime := 0
-    readreg(core.ATIME, 1, @curr_itime)
-    case usec
-        2_400..612_000:
-            usec := 256-(usec/2_400)
-        700_000:
-            usec := 0
-        other:
-            case curr_itime
-                $01..$FF:
-                    curr_itime := (256-curr_itime) * 2_400
-                $00:
-                    curr_itime := 700_000
-            return
-    writereg(core.ATIME, 1, @usec)
 
 PUB interrupt(): flag
 ' Flag indicating an interrupt has been triggered
@@ -318,6 +288,36 @@ PUB rgbw_data_rdy(): flag
     flag := 0
     readreg(core.STATUS, 1, @flag)
     return ((flag & 1) == 1)
+
+PUB rgbw_integr_time(usec=-2): curr_itime
+' Set sensor integration time, in microseconds
+'   Valid values: 2_400 to 700_000, in multiples of 2_400
+'   Any other value polls the chip and returns the current setting
+'   NOTE: Setting will be rounded, if an even multiple of 2_400 isn't given
+'   NOTE: Max effective resolution achieved with 154_000..700_000
+'   Each cycle is approx 2.4ms (exception: 256 cycles is 700ms)
+'
+'   Cycles      Time    Effective range:
+'   1           2.4ms   10 bits     (max count: 1024)
+'   10          24ms    13+ bits    (max count: 10240)
+'   42          101ms   15+ bits    (max count: 43008)
+'   64          154ms   16 bits     (max count: 65535)
+'   256         700ms   16 bits     (max count: 65535)
+    curr_itime := 0
+    readreg(core.ATIME, 1, @curr_itime)
+    case usec
+        2_400..612_000:
+            usec := 256-(usec/2_400)
+        700_000:
+            usec := 0
+        other:
+            case curr_itime
+                $01..$FF:
+                    curr_itime := (256-curr_itime) * 2_400
+                $00:
+                    curr_itime := 700_000
+            return
+    writereg(core.ATIME, 1, @usec)
 
 PUB wait_time(cycles=-2): curr_cyc
 ' Wait time, in cycles (see WaitTimer)
