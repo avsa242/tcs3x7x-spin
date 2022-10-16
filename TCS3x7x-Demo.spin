@@ -5,7 +5,7 @@
     Description: Demo of the TCS3x7x driver
     Copyright (c) 2022
     Started: Jun 24, 2018
-    Updated: Sep 25, 2022
+    Updated: Oct 16, 2022
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -31,7 +31,7 @@ CON
 
 OBJ
 
-    cfg : "core.con.boardcfg.flip"
+    cfg : "boardcfg.flip"
     ser : "com.serial.terminal.ansi"
     time: "time"
     rgb : "sensor.light.tcs3x7x"

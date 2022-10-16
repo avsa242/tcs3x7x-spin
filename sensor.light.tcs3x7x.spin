@@ -5,7 +5,7 @@
     Description: Driver for the AMS (nee TAOS) TCS3x7x RGB color sensor
     Copyright (c) 2022
     Started: Jun 24, 2018
-    Updated: Sep 27, 2022
+    Updated: Oct 16, 2022
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -84,7 +84,7 @@ PUB defaults{}
     wait_timer(FALSE)
     opmode(STDBY)
     powered(FALSE)
-    integration_time(2_400)
+    rgbw_integr_time(2_400)
     wait_time(2_400)
     int_set_lo_thresh(0)
     int_set_hi_thresh(0)
