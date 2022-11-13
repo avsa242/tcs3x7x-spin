@@ -5,7 +5,7 @@
     Description: Driver for the AMS (nee TAOS) TCS3x7x RGB color sensor (P2 version)
     Copyright (c) 2022
     Started: Jun 24, 2018
-    Updated: Nov 9, 2022
+    Updated: Nov 13, 2022
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -122,7 +122,7 @@ PUB green_data(): gdata
     readreg(core.GDATAL, 2, @gdata)
     _wrgb[GREEN] := gdata
 
-PUB int_clr()
+PUB int_clear()
 ' Clears an asserted interrupt
 ' NOTE: This clears an active interrupt asserting the INT pin, as well as
 '   the flag readable using the interrupt() method
