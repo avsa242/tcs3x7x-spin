@@ -11,13 +11,11 @@
 
 CON
 
-    SLAVE_WR        = core.SLAVE_ADDR
-    SLAVE_RD        = SLAVE_WR|1
+    { default I/O configuration - these can be overridden by the parent object }
+    SCL             = 28
+    SDA             = 29
+    I2C_FREQ        = 100_000
 
-    DEF_SCL         = 28
-    DEF_SDA         = 29
-    DEF_HZ          = 100_000
-    I2C_MAX_FREQ    = core.I2C_MAX_FREQ
 
     { gain() settings }
     GAIN_DEF        = 1
@@ -36,16 +34,25 @@ CON
     BLUE            = 3
 
 
+    SLAVE_WR        = core.SLAVE_ADDR
+    SLAVE_RD        = SLAVE_WR|1
+
+    DEF_SCL         = 28
+    DEF_SDA         = 29
+    DEF_HZ          = 100_000
+    I2C_MAX_FREQ    = core.I2C_MAX_FREQ
+
+
 OBJ
 
 { decide: Bytecode I2C engine, or PASM? Default is PASM if BC isn't specified }
 #ifdef TCS3X7X_I2C_BC
-    i2c : "com.i2c.nocog"                       ' BC I2C engine
+    i2c:    "com.i2c.nocog"                     ' BC I2C engine
 #else
-    i2c : "com.i2c"                             ' PASM I2C engine
+    i2c:    "com.i2c"                           ' PASM I2C engine
 #endif
-    core: "core.con.tcs3x7x"                    ' HW-specific constants
-    time: "time"                                ' time delay methods
+    core:   "core.con.tcs3x7x"                  ' HW-specific constants
+    time:   "time"                              ' time delay methods
 
 
 VAR
@@ -59,17 +66,16 @@ PUB null()
 
 PUB start(): status
 ' Start using "standard" Propeller I2C pins and 100kHz
-    return startx(DEF_SCL, DEF_SDA, DEF_HZ)
+    return startx(SCL, SDA, I2C_FREQ)
 
 
 PUB startx(SCL_PIN, SDA_PIN, I2C_HZ): status
 ' Start using custom settings
-    if (lookdown(SCL_PIN: 0..31) and lookdown(SDA_PIN: 0..31) and I2C_HZ =< core.I2C_MAX_FREQ)
-        if (status := i2c.init(SCL_PIN, SDA_PIN, I2C_HZ))
+    if ( lookdown(SCL_PIN: 0..31) and lookdown(SDA_PIN: 0..31) )
+        if ( status := i2c.init(SCL_PIN, SDA_PIN, I2C_HZ) )
             time.msleep(1)
-            if i2c.present(SLAVE_WR)
-                if (lookdown(dev_id(): core.DEVID_3472_1_5, core.DEVID_3472_3_7))
-                    return
+            if ( lookdown(dev_id(): core.DEVID_3472_1_5, core.DEVID_3472_3_7) )
+                return
     ' if this point is reached, something above failed
     ' Double check I/O pin assignments, connections, power
     ' Lastly - make sure you have at least one free core/cog

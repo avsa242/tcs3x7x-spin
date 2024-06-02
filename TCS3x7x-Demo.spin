@@ -15,25 +15,19 @@ CON
     _xinfreq        = cfg._xinfreq
 
 ' -- User-modifiable constants
-    LED             = cfg.LED1
-    SER_BAUD        = 115_200
-
-    { I2C configuration }
-    I2C_SCL         = 28
-    I2C_SDA         = 29
-    I2C_FREQ        = 400_000
-
     { optional white LED }
     LED_ENABLED     = TRUE
     WHITE_LED_PIN   = 25
 ' --
 
+
 OBJ
 
-    cfg : "boardcfg.flip"
-    ser : "com.serial.terminal.ansi"
-    time: "time"
-    rgb : "sensor.light.tcs3x7x"
+    cfg:    "boardcfg.flip"
+    time:   "time"
+    ser:    "com.serial.terminal.ansi" | SER_BAUD=115_200
+    rgb:    "sensor.light.tcs3x7x" | SCL=28, SDA=29, I2C_FREQ=400_000
+
 
 PUB main()
 
@@ -42,11 +36,11 @@ PUB main()
                                                 '   sensor power
     repeat
         rgb.opmode(rgb.RUN)
-        if (LED_ENABLED)                        ' if LED is enabled,
+        if ( LED_ENABLED )                      ' if LED is enabled,
             outa[WHITE_LED_PIN] := 1            '   illuminate the sample
         repeat until rgb.rgbw_data_rdy()        ' wait for new sensor data
         rgb.opmode(rgb.STDBY)                   ' pause sensor while processing
-        if (LED_ENABLED)
+        if ( LED_ENABLED )
             outa[WHITE_LED_PIN] := 0
 
         rgb.measure()
@@ -57,21 +51,24 @@ PUB main()
         ser.printf1(@"Green: %4.4x\n\r", rgb.last_green())
         ser.printf1(@"Blue:  %4.4x\n\r", rgb.last_blue())
 
+
 PUB setup()
 
-    if (LED_ENABLED)
+    if ( LED_ENABLED )
         outa[WHITE_LED_PIN] := 0                ' turn off the LED, initially
         dira[WHITE_LED_PIN] := 1
 
-    ser.start(SER_BAUD)
+    ser.start()
     time.msleep(30)
     ser.clear()
     ser.strln(@"Serial terminal started")
-    if (rgb.startx(I2C_SCL, I2C_SDA, I2C_FREQ))
+
+    if ( rgb.start() )
         ser.strln(@"TCS3X7X driver started")
     else
         ser.strln(@"TCS3X7X driver failed to start - halting")
         repeat
+
 
 DAT
 {
