@@ -1,13 +1,12 @@
 {
-    --------------------------------------------
-    Filename: TCS3x7x-Demo.spin2
-    Author: Jesse Burt
-    Description: Demo of the TCS3x7x driver (P2 version)
-    Copyright (c) 2022
-    Started: Jun 24, 2018
-    Updated: Nov 9, 2022
-    See end of file for terms of use.
-    --------------------------------------------
+----------------------------------------------------------------------------------------------------
+    Filename:       TCS3x7x-Demo.spin2
+    Description:    Demo of the TCS3x7x driver
+    Author:         Jesse Burt
+    Started:        Jun 24, 2018
+    Updated:        Jun 2, 2024
+    Copyright (c) 2024 - See end of file for terms of use.
+----------------------------------------------------------------------------------------------------
 }
 
 CON
@@ -74,7 +73,7 @@ PUB setup()
 
 DAT
 {
-Copyright 2022 Jesse Burt
+Copyright 2024 Jesse Burt
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
 associated documentation files (the "Software"), to deal in the Software without restriction,
