@@ -1,56 +1,49 @@
 {
-    --------------------------------------------
-    Filename: TCS3x7x-ThreshIntDemo.spin
-    Author: Jesse Burt
-    Description: Demo of the TCS3x7x driver
-        Threshold interrupt functionality
-    Copyright (c) 2022
-    Started: Jan 6, 2022
-    Updated: Dec 2, 2022
-    See end of file for terms of use.
-    --------------------------------------------
+----------------------------------------------------------------------------------------------------
+    Filename:       TCS3x7x-ThreshIntDemo.spin
+    Description:    Demo of the TCS3x7x driver
+        * Threshold interrupt functionality
+    Author:         Jesse Burt
+    Started:        Jan 6, 2022
+    Updated:        Jun 2, 2024
+    Copyright (c) 2024 - See end of file for terms of use.
+----------------------------------------------------------------------------------------------------
 }
 
 CON
 
-    _clkmode        = cfg#_clkmode
-    _xinfreq        = cfg#_xinfreq
+    _clkmode        = cfg._clkmode
+    _xinfreq        = cfg._xinfreq
 
 ' -- User-modifiable constants
-    LED1            = cfg#LED1
-    SER_BAUD        = 115_200
-
-    SCL_PIN         = 28
-    SDA_PIN         = 29
-    I2C_FREQ        = 400_000
-
-    INT1            = 24
-
-' I/O Pin connected to the (optional) on-board white LED
-    WH_LED          = 25
+    INT1            = 24                        ' pin connected to TCS3x7x's INT1 pin
+    WH_LED          = 25                        ' pin connected to an (optional) white LED
 ' --
+
 
 OBJ
 
-    cfg : "boardcfg.flip"
-    ser : "com.serial.terminal.ansi"
-    time: "time"
-    rgb : "sensor.light.tcs3x7x"
+    cfg:    "boardcfg.flip"
+    time:   "time"
+    ser:    "com.serial.terminal.ansi" | SER_BAUD=115_200
+    rgb:    "sensor.light.tcs3x7x" | SCL=28, SDA=29, I2C_FREQ=400_000
+
 
 VAR
 
     long _isr_stack[50]                         ' stack for ISR core
     long _intflag                               ' interrupt flag
 
-PUB main{}
+
+PUB main()
 
     outa[WH_LED] := 0
     dira[WH_LED] := 1
-    setup{}
-    rgb.preset_active{}                         ' default settings, but enable
+    setup()
+    rgb.preset_active()                         ' default settings, but enable
                                                 '   sensor power
 
-    rgb.int_clear{}                               ' clear potential false int
+    rgb.int_clear()                             ' clear potential false int
     rgb.int_ena(true)
     rgb.int_set_lo_thresh(0)
     rgb.int_set_hi_thresh(15)                   ' (low, high): 0..65535
@@ -58,26 +51,27 @@ PUB main{}
     ' Wait for the sensor to read less than the low threshold or greater than
     '   the high threshold. int_duration() sets the number of measurement cycles
     '   the readings must be outside of the thresholds in order to assert an
-    '   interrupt (to reduce false positives)
+    '   interrupt, to reduce false positives. See the driver for details.
     ' NOTE: The interrupt applies only to the _white_ color channel
     ' NOTE: The interrupt is active low, and open drain, so requires a pullup
     '   resistor
     repeat
         if (_intflag)
             ser.pos_xy(0, 8)
-            ser.strln(string("interrupt - press any key to clear"))
-            ser.getchar{}
-            rgb.int_clear{}
+            ser.strln(@"interrupt - press any key to clear")
+            ser.getchar()
+            rgb.int_clear()
             ser.pos_xy(0, 8)
-            ser.clear_line{}
+            ser.clear_line()
 
         ser.pos_xy(0, 3)
-        ser.printf1(string("White: %4.4x\n\r"), rgb.white_data{})
-        ser.printf1(string("Red:   %4.4x\n\r"), rgb.red_data{})
-        ser.printf1(string("Green: %4.4x\n\r"), rgb.green_data{})
-        ser.printf1(string("Blue:  %4.4x\n\r"), rgb.blue_data{})
+        ser.printf1(@"White: %4.4x\n\r", rgb.white_data())
+        ser.printf1(@"Red:   %4.4x\n\r", rgb.red_data())
+        ser.printf1(@"Green: %4.4x\n\r", rgb.green_data())
+        ser.printf1(@"Blue:  %4.4x\n\r", rgb.blue_data())
 
-PRI isr{}
+
+PRI isr()
 ' Interrupt service routine
     dira[INT1] := 0                             ' INT1 as input
     repeat
@@ -87,23 +81,26 @@ PRI isr{}
         _intflag := 0                           '   clear flag
 
 
-PUB setup{}
+PUB setup()
 
-    ser.start(SER_BAUD)
+    ser.start()
     time.msleep(30)
-    ser.clear{}
-    ser.strln(string("Serial terminal started"))
-    if rgb.startx(SCL_PIN, SDA_PIN, I2C_FREQ)
-        ser.strln(string("TCS3X7X driver started"))
+    ser.clear()
+    ser.strln(@"Serial terminal started")
+
+    if ( rgb.start() )
+        ser.strln(@"TCS3X7X driver started")
     else
-        ser.strln(string("TCS3X7X driver failed to start - halting"))
+        ser.strln(@"TCS3X7X driver failed to start - halting")
         repeat
 
-    cognew(isr{}, @_isr_stack)                    ' start ISR in another core
+
+    cognew(isr(), @_isr_stack)                    ' start ISR in another core
+
 
 DAT
 {
-Copyright 2022 Jesse Burt
+Copyright 2024 Jesse Burt
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
 associated documentation files (the "Software"), to deal in the Software without restriction,

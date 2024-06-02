@@ -1,14 +1,13 @@
 {
-    --------------------------------------------
-    Filename: TCS3x7x-ThreshIntDemo.spin2
-    Author: Jesse Burt
-    Description: Demo of the TCS3x7x driver
-        Threshold interrupt functionality (P2 version)
-    Copyright (c) 2022
-    Started: Jan 6, 2022
-    Updated: Dec 2, 2022
-    See end of file for terms of use.
-    --------------------------------------------
+----------------------------------------------------------------------------------------------------
+    Filename:       TCS3x7x-ThreshIntDemo.spin2
+    Description:    Demo of the TCS3x7x driver
+        * Threshold interrupt functionality
+    Author:         Jesse Burt
+    Started:        Jan 6, 2022
+    Updated:        Jun 2, 2024
+    Copyright (c) 2024 - See end of file for terms of use.
+----------------------------------------------------------------------------------------------------
 }
 
 CON
@@ -17,29 +16,23 @@ CON
     _xtlfreq        = cfg._xtlfreq
 
 ' -- User-modifiable constants
-    LED1            = cfg.LED1
-    SER_BAUD        = 2_000_000
-
-    SCL_PIN         = 0
-    SDA_PIN         = 1
-    I2C_FREQ        = 400_000
-
-    INT1            = 2
-
-' I/O Pin connected to the (optional) on-board white LED
-    WH_LED          = 3
+    INT1            = 2                         ' pin connected to TCS3x7x's INT1 pin
+    WH_LED          = 3                         ' pin connected to an (optional) white LED
 ' --
+
 
 OBJ
 
-    cfg : "boardcfg.p2eval"
-    ser : "com.serial.terminal.ansi"
-    rgb : "sensor.light.tcs3x7x"
+    cfg:    "boardcfg.p2eval"
+    ser:    "com.serial.terminal.ansi" | SER_BAUD=2_000_000
+    rgb:    "sensor.light.tcs3x7x" | SCL=0, SDA=1, I2C_FREQ=400_000
+
 
 VAR
 
     long _isr_stack[50]                         ' stack for ISR core
     long _intflag                               ' interrupt flag
+
 
 PUB main()
 
@@ -48,7 +41,7 @@ PUB main()
     rgb.preset_active()                         ' default settings, but enable
                                                 '   sensor power
 
-    rgb.int_clear()                               ' clear potential false int
+    rgb.int_clear()                             ' clear potential false int
     rgb.int_ena(true)
     rgb.int_set_lo_thresh(0)
     rgb.int_set_hi_thresh(15)                   ' (low, high): 0..65535
@@ -56,7 +49,7 @@ PUB main()
     ' Wait for the sensor to read less than the low threshold or greater than
     '   the high threshold. int_duration() sets the number of measurement cycles
     '   the readings must be outside of the thresholds in order to assert an
-    '   interrupt (to reduce false positives)
+    '   interrupt, to reduce false positives. See the driver for details.
     ' NOTE: The interrupt applies only to the _white_ color channel
     ' NOTE: The interrupt is active low, and open drain, so requires a pullup
     '   resistor
@@ -75,6 +68,7 @@ PUB main()
         ser.printf(@"Green: %4.4x\n\r", rgb.green_data())
         ser.printf(@"Blue:  %4.4x\n\r", rgb.blue_data())
 
+
 PRI isr()
 ' Interrupt service routine
     pinf(INT1)                                  ' INT1 as input
@@ -87,21 +81,23 @@ PRI isr()
 
 PUB setup()
 
-    ser.start(SER_BAUD)
-    waitms(30)
+    ser.start()
     ser.clear()
     ser.strln(@"Serial terminal started")
-    if rgb.startx(SCL_PIN, SDA_PIN, I2C_FREQ)
+
+    if ( rgb.start() )
         ser.strln(@"TCS3X7X driver started")
     else
         ser.strln(@"TCS3X7X driver failed to start - halting")
         repeat
 
+
     cogspin(NEWCOG, isr(), @_isr_stack)           ' start ISR in another core
+
 
 DAT
 {
-Copyright 2022 Jesse Burt
+Copyright 2024 Jesse Burt
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
 associated documentation files (the "Software"), to deal in the Software without restriction,

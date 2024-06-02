@@ -17,7 +17,7 @@ CON
 ' -- User-modifiable constants
     { optional white LED }
     LED_ENABLED     = TRUE
-    WHITE_LED_PIN   = 25
+    WHITE_LED_PIN   = 0
 ' --
 
 
