@@ -112,11 +112,10 @@ PUB preset_active()
     opmode(RUN)
 
 
-PUB blue_data(): bdata
+PUB blue_data(): b
 ' Live blue-channel data
 '   NOTE: This method also updates data retrievable with last_blue() method
-    readreg(core.BDATAL, 2, @bdata)
-    _wrgb[BLUE] := bdata
+    b := _wrgb[BLUE] := readreg(core.BDATAL, 2)
 
 
 PUB dev_id(): id
@@ -124,42 +123,36 @@ PUB dev_id(): id
 '   Returns:
 '       $44: TCS34721 and TCS34725
 '       $4D: TCS34723 and TCS34727
-    id := 0
-    readreg(core.DEVID, 1, @id)
+    return readreg(core.DEVID)
 
 
-PUB gain(factor): curr_gain
+PUB gain(g=-2): c
 ' Set sensor amplifier gain, as a multiplier
 '   Valid values: 1, 4, 16, 60
 '   Any other value polls the chip and returns the current setting
-    curr_gain := 0
-    readreg(core.CONTROL, 1, @curr_gain)
-    case factor
+    c := readreg(core.CONTROL)
+    case g
         1, 4, 16, 60:
-            factor := lookdownz(factor: 1, 4, 16, 60)
+            g := lookdownz(g: 1, 4, 16, 60) & core.CONTROL_MASK
+            writereg(core.CONTROL, g)
         other:
-            curr_gain &= core.AGAIN_BITS
-            return lookupz(curr_gain: 1, 4, 16, 60)
-
-    factor &= core.CONTROL_MASK
-    writereg(core.CONTROL, 1, @factor)
+            return lookupz(c & core.AGAIN_BITS: 1, 4, 16, 60)
 
 
-PUB green_data(): gdata
+PUB green_data(): g
 ' Live green-channel data
 '   NOTE: This method also updates data retrievable with last_green() method
-    readreg(core.GDATAL, 2, @gdata)
-    _wrgb[GREEN] := gdata
+    g := _wrgb := readreg(core.GDATAL, 2)
 
 
 PUB int_clear()
 ' Clears an asserted interrupt
 ' NOTE: This clears an active interrupt asserting the INT pin, as well as
 '   the flag readable using the interrupt() method
-    writereg(core.CMD_CLR_INT, 0, 0)
+    command(core.CMD_CLR_INT)
 
 
-PUB int_duration(cycles): curr_cyc
+PUB int_duration(d=-2): c
 ' Set number of consecutive cycles necessary to generate an interrupt
 '   Valid values:
 '       *0, 1, 2, 3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60
@@ -167,99 +160,87 @@ PUB int_duration(cycles): curr_cyc
 '           0: Every cycle generates an interrupt, regardless of value
 '           1: Any value outside the threshold generates an interrupt
 '   Any other value polls the chip and returns the current setting
-    curr_cyc := 0
-    readreg(core.PERS, 1, @curr_cyc)
-    case cycles
+    case d
         0..3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60:
-            cycles := lookdownz(cycles: 0, 1, 2, 3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60)
+            d := lookdownz(d: 0, 1, 2, 3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60)
+            writereg(core.PERS, d)
         other:
-            curr_cyc &= core.APERS_BITS
-            return lookupz(curr_cyc: 0, 1, 2, 3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60)
-
-    curr_cyc &= core.PERS_MASK
-    writereg(core.PERS, 1, @cycles)
+            c := readreg(core.PERS, 1, @c) & core.APERS_BITS
+            return lookupz(c: 0, 1, 2, 3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60)
 
 
-PUB interrupt(): flag
+PUB interrupt(): f
 ' Flag indicating an interrupt has been triggered
 '   Returns TRUE (-1) or FALSE
 '   NOTE: An active interrupt will always be visible using interrupt(),
 '       however, to be visible on the INT pin, int_ena()
 '       must be set to TRUE
-    flag := 0
-    readreg(core.STATUS, 1, @flag)
-    return ((flag >> core.AINT) & 1) == 1
+    return ( ( readreg(core.STATUS) >> core.AINT) & 1) == 1
 
 
-PUB int_ena(state): curr_state
+PUB int_ena(i=-2): c
 ' Allow interrupts to assert the INT pin
 '   Valid values: TRUE (-1 or 1), FALSE
 '   Any other value polls the chip and returns the current setting
-    curr_state := 0
-    readreg(core.ENABLE, 1, @curr_state)
-    case ||(state)
+    c := readreg(core.ENABLE, 1, @c)
+    case ||(i)
         0, 1:
-            state := ||(state) << core.AIEN
+            i := ||(i) << core.AIEN
+            i := ( (c & core.AIEN_MASK) | i)
+            writereg(core.ENABLE, i)
         other:
-            return ((curr_state >> core.AIEN) & 1) == 1
-
-    state := ((curr_state & core.AIEN_MASK) | state) & core.ENABLE_MASK
-    writereg(core.ENABLE, 1, @state)
+            return ( (c >> core.AIEN) & 1) == 1
 
 
-PUB int_hi_thresh(): thresh
+PUB int_hi_thresh(): t
 ' Get high interrupt threshold
-    curr_thr := 0
-    readreg(core.AIHTL, 4, @curr_thr)
+    return readreg(core.AIHTL, 4)
 
 
-PUB int_lo_thresh(): thresh
+PUB int_lo_thresh(): t
 ' Get low interrupt threshold
-    curr_thr := 0
-    readreg(core.AILTL, 4, @curr_thr)
+    return readreg(core.AILTL, 4)
 
 
-PUB int_set_hi_thresh(thresh)
+PUB int_set_hi_thresh(t)
 ' Set high interrupt threshold
 '   Valid values: 0..65535
 '   NOTE: This only affects the WHITE data channel
-    thresh := 0 #> thresh <# 65535
-    writereg(core.AIHTL, 2, @thresh)
+    writereg(core.AIHTL, (0 #> t <# 65535), 2)
 
 
-PUB int_set_lo_thresh(thresh)
+PUB int_set_lo_thresh(t)
 ' Sets low interrupt threshold
 '   Valid values: 0..65535
 '   NOTE: This only affects the WHITE data channel
-    thresh := 0 #> thresh <# 65535
-    writereg(core.AILTL, 2, @thresh)
+    writereg(core.AILTL, (0 #> t <# 65535), 2)
 
 
-PUB last_blue(): bword
+PUB last_blue(): b
 ' Last blue channel data
 '   NOTE: Call measure() to update data
     return _wrgb[BLUE]
 
 
-PUB last_white(): cword
+PUB last_white(): w
 ' Last white channel data
 '   NOTE: Call measure() to update data
     return _wrgb[WHITE]
 
 
-PUB last_green(): gword
+PUB last_green(): g
 ' Last green channel data
 '   NOTE: Call measure() to update data
     return _wrgb[GREEN]
 
 
-PUB last_red(): rword
+PUB last_red(): r
 ' Last red channel data
 '   NOTE: Call measure() to update data
     return _wrgb[RED]
 
 
-PUB last_rgbw_ptr(): ptr
+PUB last_rgbw_ptr(): p
 ' Returns pointer to last RGBW data
 '   NOTE: Call measure() to update data
     return @_wrgb
@@ -270,7 +251,7 @@ PUB measure()
     readreg(core.CDATAL, 8, @_wrgb)
 
 
-PUB opmode(mode): curr_mode
+PUB opmode(m=-2): c
 ' Set sensor operating mode
 '   Valid values:
 '       STDBY (0): Standby (ADCs deactivated)
@@ -278,46 +259,39 @@ PUB opmode(mode): curr_mode
 '   Any other value polls the chip and returns the current setting
 ' NOTE: If disabling the sensor, the previously acquired data will remain latched in sensor
 ' (during same power cycle - doesn't survive resets).
-    curr_mode := 0
-    readreg(core.ENABLE, 1, @curr_mode)
-    case mode
+    c := readreg(core.ENABLE)
+    case m
         STDBY, RUN:
-            mode <<= core.AEN
+            m := ( (c & core.AEN_MASK) | (m << core.AEN) )
+            writereg(core.ENABLE, m)
         other:
-            return (curr_mode >> core.AEN) & 1
-
-    mode := ((curr_mode & core.AEN_MASK) | mode) & core.ENABLE_MASK
-    writereg(core.ENABLE, 1, @mode)
+            return (c >> core.AEN) & 1
 
 
-PUB powered(state): curr_state
+PUB powered(p=-2): c
 ' Enable power to the sensor
 '   Valid values: TRUE (-1 or 1), FALSE
 '   Any other value polls the chip and returns the current setting
-    curr_state := 0
-    readreg(core.ENABLE, 1, @curr_state)
-    case ||(state)
+    c := readreg(core.ENABLE)
+    case ||(p)
         0, 1:
-            state := ||(state) & 1
+            p := ( (c & core.PON_MASK) | ( ||(p) & 1 ) )
+            writereg(core.ENABLE, p)
+            if ( p )
+                time.usleep(2400)               ' Wait 2.4ms per datasheet p.15
         other:
-            return ((curr_state & 1) == 1)
-
-    state := ((curr_state & core.PON_MASK) | state) & core.ENABLE_MASK
-    writereg(core.ENABLE, 1, @state)
-
-    if state
-        time.usleep(2400)                       'Wait 2.4ms per datasheet p.15
+            return ( (c & 1) == 1)
 
 
-PUB red_data(): rdata
+PUB red_data(): r
 ' Live red-channel data
 '   NOTE: This method also updates data retrievable with last_red() method
-    readreg(core.RDATAL, 2, @rdata)
-    _wrgb[RED] := rdata
+    r := _wrgb := readreg(core.RDATAL, 2)
 
 
-PUB rgbw_data(ptr_buff)
-' Get sensor data into ptr_buff
+PUB rgbw_data(p_dest)
+' Get sensor data
+'   p_dest: pointer to 4-word destination buffer to copy data to
 '   Data format:
 '       WORD 0: White channel
 '       WORD 1: Red channel
@@ -329,15 +303,13 @@ PUB rgbw_data(ptr_buff)
     wordmove(ptr_buff, @_wrgb, 4)
 
 
-PUB rgbw_data_rdy(): flag
+PUB rgbw_data_rdy(): f
 ' Flag indicating new RGBW data sample ready
 '   Returns TRUE if so, FALSE if not
-    flag := 0
-    readreg(core.STATUS, 1, @flag)
-    return ((flag & 1) == 1)
+    return ( (readreg(core.STATUS) & 1) == 1)
 
 
-PUB rgbw_integr_time(usec): curr_itime
+PUB rgbw_integr_time(t=-2): c
 ' Set sensor integration time, in microseconds
 '   Valid values: 2_400 to 700_000, in multiples of 2_400
 '   Any other value polls the chip and returns the current setting
@@ -351,119 +323,111 @@ PUB rgbw_integr_time(usec): curr_itime
 '   42          101ms   15+ bits    (max count: 43008)
 '   64          154ms   16 bits     (max count: 65535)
 '   256         700ms   16 bits     (max count: 65535)
-    curr_itime := 0
-    readreg(core.ATIME, 1, @curr_itime)
-    case usec
+    c := readreg(core.ATIME)
+    case t
         2_400..612_000:
-            usec := 256-(usec/2_400)
+            t := 256-(t/2_400)
         700_000:
-            usec := 0
+            t := 0
         other:
-            case curr_itime
+            case c
                 $01..$FF:
-                    curr_itime := (256-curr_itime) * 2_400
+                    c := (256-c) * 2_400
                 $00:
-                    curr_itime := 700_000
+                    c := 700_000
             return
-    writereg(core.ATIME, 1, @usec)
+    writereg(core.ATIME, t)
 
 
-PUB wait_time(cycles): curr_cyc
+PUB wait_time(t=-2): c
 ' Wait time, in cycles (see WaitTimer)
 '   Each cycle is approx 2.4ms
 '   unless long waits are enabled (wait_long_timer(TRUE))
 '   then the wait times are 12x longer
 '   Any other value polls the chip and returns the current setting
-    curr_cyc := 0
-    readreg(core.WTIME, 1, @curr_cyc)
-    case cycles
+    c := readreg(core.WTIME)
+    case t
         1..256:
-            cycles := 256-cycles
+            t := 256-t
+            writereg(core.WTIME, t)
         other:
-            return 256-curr_cyc
-
-    writereg(core.WTIME, 1, @cycles)
+            return 256-c
 
 
-PUB wait_timer(state): curr_state
+PUB wait_timer(s=-2): c
 ' Enable sensor wait timer
 '   Valid values: TRUE (-1 or 1), FALSE (0)
 '   Any other value polls the chip and returns the current setting
 '   NOTE: Used for power management - allows sensor to wait in between
 '       acquisition cycles. If enabled, use wait_time() to specify
 '       number of cycles.
-    curr_state := 0
-    readreg(core.ENABLE, 1, @curr_state)
-    case ||(state)
-        0, 1: state := ||(state) << core.WEN
+    c := readreg(core.ENABLE)
+    case ||(s)
+        0, 1:
+            s := ((c & core.WEN_MASK) | ( ||(s) << core.WEN ) )
+            writereg(core.ENABLE, s)
         other:
-            return ((curr_state >> core.WEN) & 1) == 1
-
-    state := ((curr_state & core.WEN_MASK) | state) & core.ENABLE_MASK
-    writereg(core.ENABLE, 1, @state)
+            return ((c >> core.WEN) & 1) == 1
 
 
-PUB wait_long_timer(state): curr_state
+PUB wait_long_timer(s=-2): c
 ' Enable longer wait time cycles
 '   If enabled, wait cycles set using wait_time() are increased by a factor of 12x
 '   Valid values: TRUE (-1 or 1), FALSE (0)
 '   Any other value polls the chip and returns the current setting
-    curr_state := 0
-    readreg(core.CONFIG, 1, @curr_state)
-    case ||(state)
+    c := readreg(core.CONFIG)
+    case ||(s)
         0, 1:
-            state := ||(state) << core.WLONG
+            s := ||(s) << core.WLONG
+            writereg(core.CONFIG, s)
         other:
-            return ((curr_state >> core.WLONG) & 1) == 1
-
-    state &= core.CONFIG_MASK
-    writereg(core.CONFIG, 1, @state)
+            return ((c >> core.WLONG) & 1) == 1
 
 
-PUB white_data(): wdata
+PUB white_data(): w
 ' Live white-channel data
 '   NOTE: This method also updates data retrievable with last_white() method
-    readreg(core.CDATAL, 2, @wdata)
-    _wrgb[WHITE] := wdata
+    _wrgb[WHITE] := w := readreg(core.CDATAL, 2)
 
 
-PRI readreg(reg_nr, nr_bytes, ptr_buff) | cmd_pkt
+PRI readreg(reg_nr, len=1, p_dest=0): v | cmd_pkt
 ' Read nr_bytes from device into ptr_buff
+    v := 0
     cmd_pkt.byte[0] := SLAVE_WR
     case reg_nr
         core.ENABLE, core.ATIME, core.WTIME..core.AIHTH, core.PERS, core.CONFIG, core.CONTROL, ...
         core.DEVID..core.BDATAH:
-            case nr_bytes
+            case len
                 1:                              ' single-byte xfer
                     cmd_pkt.byte[1] := core.CMD_BYTE | reg_nr
-                2..4, 8:                        ' multi-byte xfer
+                other:                          ' multi-byte xfer
                     cmd_pkt.byte[1] := core.CMD_BLOCK | reg_nr
-                other:                          ' invalid
-                    return
     i2c.start()
     i2c.wrblock_lsbf(@cmd_pkt, 2)
 
     i2c.start()
     i2c.write(SLAVE_RD)
-    i2c.rdblock_lsbf(ptr_buff, nr_bytes, i2c#NAK)
+    if ( len > 4 )
+        i2c.rdblock_lsbf(p_dest, len, i2c.NAK)
+    else
+        i2c.rdblock_lsbf(@v, len, i2c.NAK)
     i2c.stop()
 
 
-PRI writereg(reg_nr, nr_bytes, ptr_buff) | cmd_pkt
+PRI command = writereg
+PRI writereg(reg_nr, val=0, len=1) | cmd_pkt
 ' Write nr_bytes from ptr_buff to device
     cmd_pkt.byte[0] := SLAVE_WR
     case reg_nr
         core.ENABLE, core.ATIME, core.WTIME..core.AIHTH, core.PERS, core.CONFIG, core.CONTROL:
-            case nr_bytes
+            case len
                 1:                              ' single-byte xfer
                     cmd_pkt.byte[1] := core.CMD_BYTE | reg_nr
                 2..4:                           ' multi-byte xfer
                     cmd_pkt.byte[1] := core.CMD_BLOCK | reg_nr
-                other:
-                    return                      ' invalid
             i2c.start()
             i2c.wrblock_lsbf(@cmd_pkt, 2)
-            i2c.wrblock_lsbf(ptr_buff, nr_bytes)
+            i2c.wrblock_lsbf(@val, len)
             i2c.stop()
         core.CMD_CLR_INT:                       ' special: clear interrupt
             cmd_pkt.byte[1] := reg_nr

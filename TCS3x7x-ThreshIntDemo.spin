@@ -5,25 +5,24 @@
         * Threshold interrupt functionality
     Author:         Jesse Burt
     Started:        Jan 6, 2022
-    Updated:        Jun 2, 2024
-    Copyright (c) 2024 - See end of file for terms of use.
+    Updated:        May 29, 2025
+    Copyright (c) 2025 - See end of file for terms of use.
 ----------------------------------------------------------------------------------------------------
 }
 
 CON
 
-    _clkmode        = cfg._clkmode
-    _xinfreq        = cfg._xinfreq
+    _clkmode    = xtal1+pll16x
+    _xinfreq    = 5_000_000
 
 ' -- User-modifiable constants
-    INT1            = 24                        ' pin connected to TCS3x7x's INT1 pin
-    WH_LED          = 25                        ' pin connected to an (optional) white LED
+    INT1        = 24                            ' pin connected to TCS3x7x's INT1 pin
+    WH_LED      = 0                             ' pin connected to an (optional) white LED
 ' --
 
 
 OBJ
 
-    cfg:    "boardcfg.flip"
     time:   "time"
     ser:    "com.serial.terminal.ansi" | SER_BAUD=115_200
     rgb:    "sensor.light.tcs3x7x" | SCL=28, SDA=29, I2C_FREQ=400_000
@@ -65,10 +64,10 @@ PUB main()
             ser.clear_line()
 
         ser.pos_xy(0, 3)
-        ser.printf1(@"White: %4.4x\n\r", rgb.white_data())
-        ser.printf1(@"Red:   %4.4x\n\r", rgb.red_data())
-        ser.printf1(@"Green: %4.4x\n\r", rgb.green_data())
-        ser.printf1(@"Blue:  %4.4x\n\r", rgb.blue_data())
+        ser.printf(@"White: %4x\n\r", rgb.white_data()  )
+        ser.printf(@"Red:   %4x\n\r", rgb.red_data()    )
+        ser.printf(@"Green: %4x\n\r", rgb.green_data()  )
+        ser.printf(@"Blue:  %4x\n\r", rgb.blue_data()   )
 
 
 PRI isr()
@@ -100,7 +99,7 @@ PUB setup()
 
 DAT
 {
-Copyright 2024 Jesse Burt
+Copyright 2025 Jesse Burt
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
 associated documentation files (the "Software"), to deal in the Software without restriction,

@@ -4,15 +4,15 @@
     Description:    Demo of the TCS3x7x driver
     Author:         Jesse Burt
     Started:        Jun 24, 2018
-    Updated:        Jun 2, 2024
-    Copyright (c) 2024 - See end of file for terms of use.
+    Updated:        May 29, 2025
+    Copyright (c) 2025 - See end of file for terms of use.
 ----------------------------------------------------------------------------------------------------
 }
 
 CON
 
-    _clkmode        = cfg._clkmode
-    _xinfreq        = cfg._xinfreq
+    _clkmode    = xtal1+pll16x
+    _xinfreq    = 5_000_000
 
 ' -- User-modifiable constants
     { optional white LED }
@@ -23,7 +23,6 @@ CON
 
 OBJ
 
-    cfg:    "boardcfg.flip"
     time:   "time"
     ser:    "com.serial.terminal.ansi" | SER_BAUD=115_200
     rgb:    "sensor.light.tcs3x7x" | SCL=28, SDA=29, I2C_FREQ=400_000
@@ -38,7 +37,8 @@ PUB main()
         rgb.opmode(rgb.RUN)
         if ( LED_ENABLED )                      ' if LED is enabled,
             outa[WHITE_LED_PIN] := 1            '   illuminate the sample
-        repeat until rgb.rgbw_data_rdy()        ' wait for new sensor data
+        repeat
+        until rgb.rgbw_data_rdy()               ' wait for new sensor data
         rgb.opmode(rgb.STDBY)                   ' pause sensor while processing
         if ( LED_ENABLED )
             outa[WHITE_LED_PIN] := 0
@@ -46,10 +46,10 @@ PUB main()
         rgb.measure()
 
         ser.pos_xy(0, 3)
-        ser.printf1(@"White: %4.4x\n\r", rgb.last_white())
-        ser.printf1(@"Red:   %4.4x\n\r", rgb.last_red())
-        ser.printf1(@"Green: %4.4x\n\r", rgb.last_green())
-        ser.printf1(@"Blue:  %4.4x\n\r", rgb.last_blue())
+        ser.printf(@"White: %4x\n\r", rgb.last_white() )
+        ser.printf(@"Red:   %4x\n\r", rgb.last_red()   )
+        ser.printf(@"Green: %4x\n\r", rgb.last_green() )
+        ser.printf(@"Blue:  %4x\n\r", rgb.last_blue()  )
 
 
 PUB setup()
@@ -72,7 +72,7 @@ PUB setup()
 
 DAT
 {
-Copyright 2024 Jesse Burt
+Copyright 2025 Jesse Burt
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
 associated documentation files (the "Software"), to deal in the Software without restriction,

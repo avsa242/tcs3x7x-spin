@@ -5,6 +5,7 @@ This is a P8X32A/Propeller 1, P2X8C4M64P/Propeller 2 driver object for AMS's TCS
 
 **IMPORTANT**: This software is meant to be used with the [spin-standard-library](https://github.com/avsa242/spin-standard-library) (P8X32A) or [p2-spin-standard-library](https://github.com/avsa242/p2-spin-standard-library) (P2X8C4M64P). Please install the applicable library first before attempting to use this code, otherwise you will be missing several files required to build the project.
 
+
 ## Salient Features
 
 * I2C connection at up to 400kHz
@@ -12,6 +13,7 @@ This is a P8X32A/Propeller 1, P2X8C4M64P/Propeller 2 driver object for AMS's TCS
 * Optional interrupts (set thresholds, set persistence filter)
 * Power management through sensor's built-in wait timer
 * Adjustable ADC integration time
+
 
 ## Requirements
 
@@ -25,6 +27,7 @@ P2/SPIN2:
 Optional:
 * 3rd I/O pin for a white LED used to illuminate sample
 * 4th I/O pin for reading interrupt pin state
+
 
 ## Compiler Compatibility
 
